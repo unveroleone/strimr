@@ -3,6 +3,7 @@ import SwiftUI
 struct SeerrAvailabilityBadgeView: View {
     let status: SeerrMediaStatus
     var showsLabel = false
+    var isDownloading = false
 
     var body: some View {
         if let configuration {
@@ -41,11 +42,17 @@ struct SeerrAvailabilityBadgeView: View {
                 color: .green,
                 labelKey: "seerr.media.availability.partiallyAvailable",
             )
-        case .processing:
+        case .processing where isDownloading:
             AvailabilityConfiguration(
                 systemName: "arrow.triangle.2.circlepath.circle.fill",
                 color: .yellow,
                 labelKey: "seerr.media.availability.processing",
+            )
+        case .processing:
+            AvailabilityConfiguration(
+                systemName: "clock.fill",
+                color: .yellow,
+                labelKey: "seerr.media.availability.requested",
             )
         case .pending:
             AvailabilityConfiguration(

@@ -104,6 +104,7 @@ struct SeerrManageRequestsSheetView: View {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.title3)
                 }
+                .buttonStyle(.borderless)
                 .tint(.green)
                 .disabled(viewModel.isUpdating(request))
 
@@ -115,6 +116,7 @@ struct SeerrManageRequestsSheetView: View {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title3)
                 }
+                .buttonStyle(.borderless)
                 .tint(.red)
                 .disabled(viewModel.isUpdating(request))
             }
@@ -124,19 +126,13 @@ struct SeerrManageRequestsSheetView: View {
     @ViewBuilder
     private func seasonBadges(for request: SeerrRequest) -> some View {
         let seasonNumbers = viewModel.seasonNumbers(for: request)
-        if seasonNumbers.isEmpty {
-            Text("seerr.manageRequests.seasons.all")
-                .foregroundStyle(.secondary)
-        } else {
-            HStack(spacing: 8) {
-                ForEach(seasonNumbers, id: \.self) { seasonNumber in
-                    Text(String(localized: "seerr.manageRequests.season.badge \(seasonNumber)"))
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(.ultraThinMaterial, in: Capsule())
-                }
-            }
-        }
+        Label(
+            seasonNumbers.isEmpty
+                ? String(localized: "seerr.manageRequests.seasons.all")
+                : SeerrSeasonSummary.text(for: seasonNumbers, totalSeasons: viewModel.media.numberOfSeasons),
+            systemImage: "rectangle.stack",
+        )
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
     }
 }

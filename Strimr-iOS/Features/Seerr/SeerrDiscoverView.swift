@@ -2,6 +2,7 @@ import SwiftUI
 
 @MainActor
 struct SeerrDiscoverView: View {
+    @EnvironmentObject private var coordinator: MainCoordinator
     @Environment(\.scenePhase) private var scenePhase
     @State var viewModel: SeerrDiscoverViewModel
     @State var searchViewModel: SeerrSearchViewModel
@@ -29,22 +30,7 @@ struct SeerrDiscoverView: View {
                         }
                     }
                 } else {
-                    if viewModel.shouldShowManageRequestsButton,
-                       let manageViewModel = viewModel.makePendingRequestsViewModel()
-                    {
-                        NavigationLink {
-                            SeerrPendingRequestsView(viewModel: manageViewModel)
-                        } label: {
-                            Label(
-                                String(localized: "seerr.manageRequests.action \(viewModel.pendingRequestsCount)"),
-                                systemImage: "checkmark.seal.fill",
-                            )
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(.secondary)
-                    }
+                    requestsEntry
 
                     if !viewModel.trending.isEmpty {
                         SeerrMediaSection(title: "integrations.seerr.discover.trending") {
@@ -146,6 +132,34 @@ struct SeerrDiscoverView: View {
             placement: .navigationBarDrawer(displayMode: .always),
             prompt: Text("integrations.seerr.search.placeholder"),
         )
+    }
+
+    private var requestsEntry: some View {
+        Button {
+            coordinator.showSeerrRequests()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "tray.full.fill")
+                    .font(.title3)
+                    .foregroundStyle(.purple)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("seerr.requests.title")
+                        .font(.headline)
+                    if viewModel.requestsBadgeCount > 0 {
+                        Text(String(localized: "seerr.requests.pendingCount \(viewModel.requestsBadgeCount)"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private var activeErrorMessage: String? {

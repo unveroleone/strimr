@@ -2,6 +2,7 @@ import SwiftUI
 
 @MainActor
 struct SeerrDiscoverView: View {
+    @EnvironmentObject private var coordinator: MainCoordinator
     @Environment(\.scenePhase) private var scenePhase
     @Environment(SeerrFocusModel.self) private var focusModel
     @Environment(SeerrStore.self) private var seerrStore
@@ -74,21 +75,19 @@ struct SeerrDiscoverView: View {
             .buttonStyle(.borderedProminent)
             .tint(.primary)
 
-            if viewModel.canManageRequests,
-               let manageViewModel = viewModel.makePendingRequestsViewModel()
-            {
-                NavigationLink {
-                    SeerrPendingRequestsView(viewModel: manageViewModel)
-                } label: {
-                    Label(
-                        String(localized: "seerr.manageRequests.short \(viewModel.pendingRequestsCount)"),
-                        systemImage: "checkmark.seal.fill",
-                    )
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.bordered)
-                .tint(.secondary)
+            Button {
+                coordinator.showSeerrRequests()
+            } label: {
+                Label(
+                    viewModel.requestsBadgeCount > 0
+                        ? String(localized: "seerr.manageRequests.short \(viewModel.requestsBadgeCount)")
+                        : String(localized: "seerr.requests.title"),
+                    systemImage: "tray.full.fill",
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .buttonStyle(.bordered)
+            .tint(.secondary)
         }
         .frame(maxWidth: 720, alignment: .leading)
         .focusSection()

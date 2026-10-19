@@ -40,6 +40,12 @@ struct MainTabView: View {
                             viewModel: SeerrDiscoverViewModel(store: seerrStore),
                             onSelectMedia: coordinator.showSeerrMediaDetail,
                         )
+                        .navigationDestination(for: SeerrRequestsRoute.self) { _ in
+                            SeerrRequestsView(
+                                viewModel: SeerrRequestsViewModel(store: seerrStore),
+                                onSelectMedia: coordinator.showSeerrMediaDetail,
+                            )
+                        }
                         .navigationDestination(for: SeerrMedia.self) { media in
                             SeerrMediaDetailView(
                                 viewModel: SeerrMediaDetailViewModel(

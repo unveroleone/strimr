@@ -150,6 +150,7 @@ struct MainView: View {
                 viewModel: SeerrDiscoverViewModel(store: seerrStore),
                 searchViewModel: SeerrSearchViewModel(store: seerrStore),
                 onSelectMedia: appModel.showSeerr,
+                onShowRequests: appModel.showSeerrRequests,
             )
             .unavailableWhenOffline()
         case .search:
@@ -204,6 +205,11 @@ struct MainView: View {
         if case let .seerr(media) = route {
             SeerrMediaDetailView(
                 viewModel: SeerrMediaDetailViewModel(media: media, store: seerrStore),
+                onSelectMedia: appModel.showSeerr,
+            )
+        } else if case .seerrRequests = route {
+            SeerrRequestsView(
+                viewModel: SeerrRequestsViewModel(store: seerrStore),
                 onSelectMedia: appModel.showSeerr,
             )
         } else {
@@ -266,7 +272,7 @@ struct MainView: View {
             )
         case let .library(library):
             LibraryDetailView(library: library, onSelectMedia: appModel.showMedia)
-        case .seerr:
+        case .seerr, .seerrRequests:
             EmptyView()
         }
     }

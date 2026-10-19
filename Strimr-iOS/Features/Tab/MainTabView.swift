@@ -172,6 +172,12 @@ struct MainTabView: View {
                     viewModel: SeerrMediaDetailViewModel(media: media, store: seerrStore),
                 )
             }
+            .navigationDestination(for: SeerrRequestsRoute.self) { _ in
+                SeerrRequestsView(
+                    viewModel: SeerrRequestsViewModel(store: seerrStore),
+                    onSelectMedia: coordinator.showSeerrMediaDetail,
+                )
+            }
         }
     }
 

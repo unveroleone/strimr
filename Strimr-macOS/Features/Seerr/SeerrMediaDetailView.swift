@@ -36,6 +36,8 @@ struct SeerrMediaDetailView: View {
 
                 SeerrCastSection(viewModel: bindableViewModel)
 
+                SeerrCollectionSection(viewModel: bindableViewModel, onSelectMedia: onSelectMedia)
+
                 SeerrRelatedSection(
                     viewModel: bindableViewModel,
                     section: .recommendations,
@@ -52,6 +54,9 @@ struct SeerrMediaDetailView: View {
         .ignoresSafeArea(edges: .top)
         .task {
             await bindableViewModel.loadDetails()
+            async let ratings: Void = bindableViewModel.loadRatings()
+            async let collection: Void = bindableViewModel.loadCollection()
+            _ = await (ratings, collection)
             await bindableViewModel.loadRelatedContent()
         }
         .background(gradientBackground(for: bindableViewModel))

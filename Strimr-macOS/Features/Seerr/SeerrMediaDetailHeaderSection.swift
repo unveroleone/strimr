@@ -17,6 +17,7 @@ struct SeerrMediaDetailHeaderSection: View {
 
                 headerSection
                 badgesSection
+                SeerrRatingsRow(ratings: viewModel.ratings)
                 if !viewModel.isRequestButtonHidden {
                     requestSection
                 }
@@ -91,46 +92,41 @@ struct SeerrMediaDetailHeaderSection: View {
                 .foregroundStyle(.primary)
                 .lineLimit(2)
 
-            if let secondary = viewModel.secondaryLabel {
-                Text(secondary)
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-            }
-
-            if let tertiary = viewModel.tertiaryLabel {
-                Text(tertiary)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
             if let status = viewModel.media.mediaInfo?.status {
-                SeerrAvailabilityBadgeView(status: status, showsLabel: true)
+                SeerrAvailabilityBadgeView(
+                    status: status,
+                    showsLabel: true,
+                    isDownloading: viewModel.isDownloading,
+                )
             }
         }
     }
 
     private var badgesSection: some View {
-        HStack(spacing: 8) {
-            if let year = viewModel.yearText {
-                badge(text: year)
-            }
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                if let year = viewModel.yearText {
+                    badge(text: year)
+                }
 
-            if let runtime = viewModel.runtimeText {
-                badge(text: runtime, systemImage: "clock")
-            }
+                if let runtime = viewModel.runtimeText {
+                    badge(text: runtime, systemImage: "clock")
+                }
 
-            if let rating = viewModel.ratingText {
-                badge(text: rating, systemImage: "star.fill")
-            }
+                if let rating = viewModel.ratingText {
+                    badge(text: rating, systemImage: "star.fill")
+                }
 
-            if let seasons = viewModel.seasonCountText {
-                badge(text: seasons, systemImage: "rectangle.stack")
-            }
+                if let seasons = viewModel.seasonCountText {
+                    badge(text: seasons, systemImage: "rectangle.stack")
+                }
 
-            if let episodes = viewModel.episodesCountText {
-                badge(text: episodes, systemImage: "tv")
+                if let episodes = viewModel.episodesCountText {
+                    badge(text: episodes, systemImage: "tv")
+                }
             }
         }
+        .scrollBounceBehavior(.basedOnSize)
     }
 
     private var requestSection: some View {
@@ -233,6 +229,8 @@ struct SeerrMediaDetailHeaderSection: View {
                 .font(.subheadline)
                 .fontWeight(.medium)
         }
+        .lineLimit(1)
+        .fixedSize()
         .padding(.vertical, 6)
         .padding(.horizontal, 10)
         .background(.ultraThinMaterial, in: Capsule())

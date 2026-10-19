@@ -200,6 +200,9 @@
 				Features/Seerr/SeerrMediaRequestType.swift,
 				Features/Seerr/SeerrMediaRequestViewModel.swift,
 				Features/Seerr/SeerrPendingRequestsViewModel.swift,
+				Features/Seerr/SeerrRequestDisplayStatus.swift,
+				Features/Seerr/SeerrRequestFilters.swift,
+				Features/Seerr/SeerrRequestsViewModel.swift,
 				Features/Seerr/SeerrSearchViewModel.swift,
 				Features/Settings/AccountsSettingsView.swift,
 				Features/Settings/DisplayedLibrariesSectionView.swift,
@@ -252,9 +255,11 @@
 				Models/Plex/PlexTimelineModels.swift,
 				Models/PreferenceOrder.swift,
 				Models/Seerr/SeerrAuthRequests.swift,
+				Models/Seerr/SeerrCollection.swift,
 				Models/Seerr/SeerrMedia.swift,
 				Models/Seerr/SeerrPaginatedResponse.swift,
 				Models/Seerr/SeerrQuota.swift,
+				Models/Seerr/SeerrRatings.swift,
 				Models/Seerr/SeerrRequest.swift,
 				Models/Seerr/SeerrRequestCount.swift,
 				Models/Seerr/SeerrRequestPageResponse.swift,
@@ -352,12 +357,16 @@
 				Views/ProfileInitialsAvatar.swift,
 				Views/Seerr/SeerrAvailabilityBadgeView.swift,
 				Views/Seerr/SeerrCastSection.swift,
+				Views/Seerr/SeerrCollectionSection.swift,
 				Views/Seerr/SeerrEpisodeCardView.swift,
 				Views/Seerr/SeerrMediaArtworkView.swift,
 				Views/Seerr/SeerrMediaCard.swift,
 				Views/Seerr/SeerrMediaCarousel.swift,
 				Views/Seerr/SeerrMediaSection.swift,
+				Views/Seerr/SeerrRatingsRow.swift,
 				Views/Seerr/SeerrRelatedSection.swift,
+				Views/Seerr/SeerrRequestCardView.swift,
+				Views/Seerr/SeerrRequestsView.swift,
 				Views/Seerr/SeerrSearchCard.swift,
 				Views/Seerr/SeerrSeasonAvailabilityBadgeView.swift,
 				Views/ServerScopedView.swift,
@@ -818,7 +827,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = BK9TPF9L3H;
+				DEVELOPMENT_TEAM = 88LS8RZ76R;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -1127,9 +1136,10 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "Strimr-iOS/Strimr-iOS.entitlements";
-				CODE_SIGN_IDENTITY = "Apple Distribution";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -1154,7 +1164,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.3.2;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "match AppStore $(PRODUCT_BUNDLE_IDENTIFIER)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

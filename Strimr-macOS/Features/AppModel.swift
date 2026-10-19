@@ -47,6 +47,7 @@ final class AppModel: PlaybackPresenting {
         case person(Person, ServerIdentity)
         case library(Library)
         case seerr(SeerrMedia)
+        case seerrRequests
 
         var server: ServerIdentity? {
             switch self {
@@ -56,7 +57,7 @@ final class AppModel: PlaybackPresenting {
             case let .hub(hub): hub.server
             case let .person(_, server): server
             case let .library(library): library.server
-            case .seerr: nil
+            case .seerr, .seerrRequests: nil
             }
         }
     }
@@ -199,6 +200,10 @@ final class AppModel: PlaybackPresenting {
 
     func showSeerr(_ media: SeerrMedia) {
         append(.seerr(media))
+    }
+
+    func showSeerrRequests() {
+        append(.seerrRequests)
     }
 
     func showDownloadedPlayer(

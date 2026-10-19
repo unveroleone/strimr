@@ -21,6 +21,9 @@ struct SeerrMediaDetailView: View {
                         SeerrHeroContentView(media: bindableViewModel.media)
                             .frame(maxWidth: proxy.size.width * 0.60, alignment: .leading)
 
+                        SeerrRatingsRow(ratings: bindableViewModel.ratings)
+                            .frame(maxWidth: proxy.size.width * 0.60, alignment: .leading)
+
                         actionButtons
 
                         if let errorMessage = bindableViewModel.errorMessage {
@@ -35,6 +38,11 @@ struct SeerrMediaDetailView: View {
                         }
 
                         SeerrCastSection(viewModel: bindableViewModel)
+
+                        SeerrCollectionSection(
+                            viewModel: bindableViewModel,
+                            onSelectMedia: coordinator.showSeerrMediaDetail,
+                        )
 
                         SeerrRelatedSection(
                             viewModel: bindableViewModel,
@@ -55,6 +63,9 @@ struct SeerrMediaDetailView: View {
         }
         .task {
             await viewModel.loadDetails()
+            async let ratings: Void = viewModel.loadRatings()
+            async let collection: Void = viewModel.loadCollection()
+            _ = await (ratings, collection)
             await viewModel.loadRelatedContent()
         }
         .toolbar(.hidden, for: .tabBar)
