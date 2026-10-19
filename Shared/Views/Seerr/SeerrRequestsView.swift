@@ -40,10 +40,9 @@ struct SeerrRequestsView: View {
             } message: {
                 Text(viewModel.errorMessage ?? "")
             }
-            .confirmationDialog(
+            .alert(
                 "seerr.requests.delete.title",
                 isPresented: deleteDialogBinding,
-                titleVisibility: .visible,
                 presenting: requestPendingDeletion,
             ) { request in
                 Button("seerr.requests.delete.confirm", role: .destructive) {
