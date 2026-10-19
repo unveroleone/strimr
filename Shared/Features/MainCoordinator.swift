@@ -323,6 +323,11 @@ final class MainCoordinator: ObservableObject, PlaybackPresenting {
         }
     }
 
+    func showSeerrRequests() {
+        guard tab == .seerrDiscover else { return }
+        seerrDiscoverPath.append(SeerrRequestsRoute())
+    }
+
     func showSeerrMediaDetail(_ media: SeerrMedia) {
         switch tab {
         case .seerrDiscover:

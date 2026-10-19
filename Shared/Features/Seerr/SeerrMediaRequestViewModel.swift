@@ -7,6 +7,7 @@ final class SeerrMediaRequestViewModel {
     @ObservationIgnored private let store: SeerrStore
     @ObservationIgnored private let session: URLSession
     @ObservationIgnored private let permissionService: SeerrPermissionService
+    @ObservationIgnored private let editingRequest: SeerrRequest?
 
     var media: SeerrMedia
     var selectedRequestType: SeerrMediaRequestType?
@@ -31,13 +32,21 @@ final class SeerrMediaRequestViewModel {
     private var loadedRequestType: SeerrMediaRequestType?
     private var hasManualSeasonSelection = false
 
-    init(media: SeerrMedia, store: SeerrStore, session: URLSession = .shared) {
+    init(
+        media: SeerrMedia,
+        store: SeerrStore,
+        editing editingRequest: SeerrRequest? = nil,
+        session: URLSession = .shared,
+    ) {
         self.media = media
         self.store = store
+        self.editingRequest = editingRequest
         self.session = session
         permissionService = SeerrPermissionService()
         if requestTypeOptions.count == 1 {
             selectedRequestType = requestTypeOptions.first
+        } else if let preferred = preferredRequestType, requestTypeOptions.contains(preferred) {
+            selectedRequestType = preferred
         }
         seedSelectedSeasonsIfNeeded()
     }
@@ -55,7 +64,7 @@ final class SeerrMediaRequestViewModel {
     }
 
     var existingRequest: SeerrRequest? {
-        SeerrMediaRequestAvailability.pendingRequest(in: media, for: store.user)
+        editingRequest ?? SeerrMediaRequestAvailability.pendingRequest(in: media, for: store.user)
     }
 
     var requestTypeOptions: [SeerrMediaRequestType] {

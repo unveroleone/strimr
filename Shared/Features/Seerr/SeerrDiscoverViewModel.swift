@@ -95,6 +95,10 @@ final class SeerrDiscoverViewModel {
         await loadRequestCount()
     }
 
+    var requestsBadgeCount: Int {
+        canManageRequests ? pendingRequestsCount : 0
+    }
+
     func makePendingRequestsViewModel() -> SeerrPendingRequestsViewModel? {
         guard baseURL != nil else { return nil }
         return SeerrPendingRequestsViewModel(store: store)
