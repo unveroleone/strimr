@@ -23,13 +23,27 @@ final class SeerrRequestRepository {
         try await client.request(path: "request/count")
     }
 
-    func getRequests(take: Int, skip: Int, filter: String) async throws -> SeerrRequestPageResponse {
+    func getRequests(
+        take: Int,
+        skip: Int,
+        filter: String,
+        mediaType: String = "all",
+        sort: String = "added",
+        sortDirection: String = "desc",
+    ) async throws -> SeerrRequestPageResponse {
         let queryItems = [
             URLQueryItem(name: "take", value: "\(take)"),
             URLQueryItem(name: "skip", value: "\(skip)"),
             URLQueryItem(name: "filter", value: filter),
+            URLQueryItem(name: "mediaType", value: mediaType),
+            URLQueryItem(name: "sort", value: sort),
+            URLQueryItem(name: "sortDirection", value: sortDirection),
         ]
         return try await client.request(path: "request", queryItems: queryItems)
+    }
+
+    func retryRequest(id: Int) async throws {
+        try await client.send(path: "request/\(id)/retry", method: "POST")
     }
 
     func updateRequestStatus(id: Int, status: SeerrMediaRequestStatus) async throws {

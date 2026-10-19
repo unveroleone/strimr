@@ -15,6 +15,19 @@ final class SeerrMediaRepository {
         try await client.request(path: "tv/\(id)")
     }
 
+    func getMovieRatings(id: Int) async throws -> SeerrMediaRatings {
+        try await client.request(path: "movie/\(id)/ratingscombined")
+    }
+
+    func getTVRatings(id: Int) async throws -> SeerrMediaRatings {
+        let rt: SeerrRottenTomatoesRating = try await client.request(path: "tv/\(id)/ratings")
+        return SeerrMediaRatings(rt: rt, imdb: nil)
+    }
+
+    func getCollection(id: Int) async throws -> SeerrCollection {
+        try await client.request(path: "collection/\(id)")
+    }
+
     func getTVSeason(id: Int, seasonNumber: Int) async throws -> SeerrSeason {
         try await client.request(path: "tv/\(id)/season/\(seasonNumber)")
     }

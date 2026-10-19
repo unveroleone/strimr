@@ -36,6 +36,7 @@ struct SeerrMedia: Identifiable, Hashable, Decodable {
     let numberOfEpisodes: Int?
     let seasons: [SeerrSeason]?
     let createdBy: [SeerrCreatedBy]?
+    let collection: SeerrCollectionSummary?
 }
 
 struct SeerrMediaInfo: Identifiable, Hashable, Decodable {
@@ -48,10 +49,13 @@ struct SeerrMediaInfo: Identifiable, Hashable, Decodable {
     let mediaType: SeerrMediaType?
     let jellyfinMediaId: String?
     let jellyfinMediaId4k: String?
+    let downloadStatus: [SeerrDownloadItem]?
+    let downloadStatus4k: [SeerrDownloadItem]?
 
     private enum CodingKeys: String, CodingKey {
         case id, status, status4k, seasons, requests, tmdbId, mediaType
         case jellyfinMediaId, jellyfinMediaId4k
+        case downloadStatus, downloadStatus4k
     }
 
     init(from decoder: Decoder) throws {
@@ -65,6 +69,8 @@ struct SeerrMediaInfo: Identifiable, Hashable, Decodable {
         mediaType = try container.decodeIfPresent(SeerrMediaType.self, forKey: .mediaType)
         jellyfinMediaId = Self.decodeString(container, key: .jellyfinMediaId)
         jellyfinMediaId4k = Self.decodeString(container, key: .jellyfinMediaId4k)
+        downloadStatus = try? container.decodeIfPresent([SeerrDownloadItem].self, forKey: .downloadStatus)
+        downloadStatus4k = try? container.decodeIfPresent([SeerrDownloadItem].self, forKey: .downloadStatus4k)
     }
 
     private static func decodeString(
@@ -89,6 +95,24 @@ enum SeerrMediaStatus: Int, Hashable, Decodable {
     case available = 5
     case blacklisted = 6
     case deleted = 7
+}
+
+struct SeerrDownloadItem: Hashable, Decodable {
+    let title: String?
+    let size: Double?
+    let sizeLeft: Double?
+
+    var progress: Double? {
+        guard let size, size > 0, let sizeLeft else { return nil }
+        return min(1, max(0, 1 - sizeLeft / size))
+    }
+}
+
+struct SeerrCollectionSummary: Identifiable, Hashable, Decodable {
+    let id: Int
+    let name: String?
+    let posterPath: String?
+    let backdropPath: String?
 }
 
 struct SeerrMediaSeasonInfo: Identifiable, Hashable, Decodable {

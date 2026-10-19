@@ -17,6 +17,9 @@ struct SeerrRequest: Identifiable, Hashable, Decodable {
     let createdAt: String?
     let media: SeerrMediaInfo?
     let profileName: String?
+    let type: SeerrMediaType?
+    let updatedAt: String?
+    let modifiedBy: SeerrUser?
 }
 
 struct SeerrRequestSeasonInfo: Identifiable, Hashable, Decodable {
