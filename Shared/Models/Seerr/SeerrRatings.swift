@@ -9,10 +9,6 @@ struct SeerrRottenTomatoesRating: Hashable, Decodable {
     let audienceScore: Int?
     let year: Int?
 
-    var isCertifiedFresh: Bool {
-        criticsRating == "Certified Fresh"
-    }
-
     var isCriticsFresh: Bool {
         guard let criticsScore else { return false }
         return criticsScore >= 60

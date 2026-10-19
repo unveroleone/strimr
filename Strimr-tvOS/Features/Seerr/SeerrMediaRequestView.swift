@@ -190,7 +190,11 @@ struct SeerrMediaRequestView: View {
                                 }
                                 Spacer()
                                 if let badge = viewModel.seasonAvailabilityBadge(for: season) {
-                                    SeerrSeasonAvailabilityBadgeView(badge: badge, showsLabel: true)
+                                    SeerrSeasonAvailabilityBadgeView(
+                                        badge: badge,
+                                        showsLabel: true,
+                                        isDownloading: viewModel.media.mediaInfo?.isDownloading ?? false,
+                                    )
                                 }
                             }
                         }

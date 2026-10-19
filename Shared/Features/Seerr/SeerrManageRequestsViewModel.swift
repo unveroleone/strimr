@@ -53,32 +53,20 @@ final class SeerrManageRequestsViewModel {
     }
 
     func displayName(for request: SeerrRequest) -> String {
-        if let name = request.requestedBy?.displayName, !name.isEmpty {
-            return name
-        }
-        if let id = request.requestedBy?.id {
-            return String(localized: "seerr.manageRequests.userId \(id)")
-        }
-        return String(localized: "seerr.manageRequests.unknownUser")
+        SeerrRequestFormatting.displayName(for: request.requestedBy)
     }
 
     func requestedAtText(for request: SeerrRequest) -> String? {
         guard let createdAt = request.createdAt else { return nil }
-        if let date = parsedDate(from: createdAt) {
-            let formatted = SeerrManageRequestsViewModel.outputDateFormatter.string(from: date)
+        if let date = SeerrRequestFormatting.parsedDate(from: createdAt) {
+            let formatted = SeerrRequestFormatting.mediumDateTimeText(for: date)
             return String(localized: "seerr.manageRequests.requestedAt \(formatted)")
         }
         return String(localized: "seerr.manageRequests.requestedAt \(createdAt)")
     }
 
     func avatarURL(for user: SeerrUser?) -> URL? {
-        guard let avatar = user?.avatar, !avatar.isEmpty else { return nil }
-        if let url = URL(string: avatar), url.scheme != nil {
-            return url
-        }
-        guard let baseURL else { return nil }
-        let path = avatar.hasPrefix("/") ? String(avatar.dropFirst()) : avatar
-        return baseURL.appendingPathComponent(path)
+        SeerrRequestFormatting.avatarURL(for: user, baseURL: baseURL)
     }
 
     func seasonNumbers(for request: SeerrRequest) -> [Int] {
@@ -95,8 +83,7 @@ final class SeerrManageRequestsViewModel {
     }
 
     private func update(_ request: SeerrRequest, status: SeerrMediaRequestStatus) async {
-        guard let requestRepository else { return }
-        guard !updatingRequestIDs.contains(request.id) else { return }
+        guard let requestRepository, !updatingRequestIDs.contains(request.id) else { return }
 
         updatingRequestIDs.insert(request.id)
         defer { updatingRequestIDs.remove(request.id) }
@@ -120,11 +107,7 @@ final class SeerrManageRequestsViewModel {
     }
 
     private func parsedDate(from value: String?) -> Date? {
-        guard let value else { return nil }
-        if let date = SeerrManageRequestsViewModel.isoFormatterWithFractional.date(from: value) {
-            return date
-        }
-        return SeerrManageRequestsViewModel.isoFormatter.date(from: value)
+        SeerrRequestFormatting.parsedDate(from: value)
     }
 
     private func presentError(_ error: Error) {
@@ -139,23 +122,4 @@ final class SeerrManageRequestsViewModel {
         errorMessage = String(localized: .init(key))
         isShowingError = true
     }
-
-    private static let isoFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter
-    }()
-
-    private static let isoFormatterWithFractional: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-
-    private static let outputDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter
-    }()
 }

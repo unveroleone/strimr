@@ -39,6 +39,43 @@ struct SeerrMedia: Identifiable, Hashable, Decodable {
     let collection: SeerrCollectionSummary?
 }
 
+extension SeerrMedia {
+    init(placeholderID id: Int, mediaType: SeerrMediaType) {
+        self.init(
+            id: id,
+            title: nil,
+            name: nil,
+            overview: nil,
+            mediaType: mediaType,
+            mediaInfo: nil,
+            backdropPath: nil,
+            posterPath: nil,
+            profilePath: nil,
+            releaseDate: nil,
+            firstAirDate: nil,
+            budget: nil,
+            revenue: nil,
+            genres: nil,
+            popularity: nil,
+            productionCompanies: nil,
+            productionCountries: nil,
+            voteAverage: nil,
+            voteCount: nil,
+            runtime: nil,
+            keywords: nil,
+            credits: nil,
+            externalIds: nil,
+            tagline: nil,
+            status: nil,
+            numberOfSeasons: nil,
+            numberOfEpisodes: nil,
+            seasons: nil,
+            createdBy: nil,
+            collection: nil,
+        )
+    }
+}
+
 struct SeerrMediaInfo: Identifiable, Hashable, Decodable {
     let id: Int
     let status: SeerrMediaStatus?
@@ -71,6 +108,10 @@ struct SeerrMediaInfo: Identifiable, Hashable, Decodable {
         jellyfinMediaId4k = Self.decodeString(container, key: .jellyfinMediaId4k)
         downloadStatus = try? container.decodeIfPresent([SeerrDownloadItem].self, forKey: .downloadStatus)
         downloadStatus4k = try? container.decodeIfPresent([SeerrDownloadItem].self, forKey: .downloadStatus4k)
+    }
+
+    var isDownloading: Bool {
+        !(downloadStatus ?? []).isEmpty
     }
 
     private static func decodeString(

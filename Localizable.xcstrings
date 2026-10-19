@@ -14063,6 +14063,54 @@
         }
       }
     },
+    "seerr.collection.requestResult %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld of %lld requested"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld sur %lld demandés"
+          }
+        }
+      }
+    },
+    "seerr.collection.quotaLimited %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your request quota allows %lld more."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre quota de demandes en autorise encore %lld."
+          }
+        }
+      }
+    },
+    "seerr.requests.unavailableTitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Title unavailable"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Titre indisponible"
+          }
+        }
+      }
+    },
     "seerr.detail.countries" : {
       "localizations" : {
         "en" : {

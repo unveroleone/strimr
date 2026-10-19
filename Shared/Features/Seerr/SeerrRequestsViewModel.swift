@@ -8,6 +8,7 @@ final class SeerrRequestsViewModel {
     @ObservationIgnored private let session: URLSession
     @ObservationIgnored private let permissionService = SeerrPermissionService()
     @ObservationIgnored private var loadGeneration = 0
+    @ObservationIgnored private var pendingNextPage = false
 
     var query: SeerrRequestQuery
     var requests: [SeerrRequest] = []
@@ -18,6 +19,7 @@ final class SeerrRequestsViewModel {
     var isShowingError = false
     var busyRequestIDs: Set<Int> = []
     var hasLoaded = false
+    var unavailableMediaKeys: Set<SeerrRequestMediaKey> = []
 
     private var totalResults = 0
     private let pageSize = 20
@@ -67,7 +69,13 @@ final class SeerrRequestsViewModel {
     func reload() async {
         loadGeneration += 1
         let generation = loadGeneration
-        guard let requestRepository else { return }
+        pendingNextPage = false
+
+        guard let requestRepository else {
+            presentError(SeerrAPIError.invalidURL)
+            hasLoaded = true
+            return
+        }
 
         isLoading = true
         errorMessage = nil
@@ -83,6 +91,8 @@ final class SeerrRequestsViewModel {
             guard generation == loadGeneration, !Task.isCancelled else { return }
             requests = response.results
             totalResults = response.pageInfo.results
+            isLoading = false
+            hasLoaded = true
             await loadMediaDetails(for: response.results, generation: generation)
         } catch is CancellationError {
             return
@@ -91,15 +101,21 @@ final class SeerrRequestsViewModel {
             requests = []
             totalResults = 0
             presentError(error)
+            return
         }
+
+        await continuePagingIfRequested(generation: generation)
     }
 
     func loadMoreIfNeeded(current request: SeerrRequest) async {
-        guard request.id == requests.last?.id else { return }
-        guard !isLoadingMore, !isLoading else { return }
-        guard requests.count < totalResults else { return }
+        guard request.id == requests.last?.id, requests.count < totalResults else { return }
+        guard !isLoadingMore, !isLoading else {
+            pendingNextPage = true
+            return
+        }
         guard let requestRepository else { return }
 
+        pendingNextPage = false
         let generation = loadGeneration
         isLoadingMore = true
         defer { isLoadingMore = false }
@@ -111,13 +127,22 @@ final class SeerrRequestsViewModel {
             let newRequests = response.results.filter { !knownIDs.contains($0.id) }
             requests.append(contentsOf: newRequests)
             totalResults = max(totalResults, response.pageInfo.results)
+            isLoadingMore = false
             await loadMediaDetails(for: newRequests, generation: generation)
         } catch is CancellationError {
             return
         } catch {
             guard generation == loadGeneration, !Task.isCancelled else { return }
             presentError(error)
+            return
         }
+
+        await continuePagingIfRequested(generation: generation)
+    }
+
+    private func continuePagingIfRequested(generation: Int) async {
+        guard pendingNextPage, generation == loadGeneration, let last = requests.last else { return }
+        await loadMoreIfNeeded(current: last)
     }
 
     func approve(_ request: SeerrRequest) async {
@@ -139,8 +164,7 @@ final class SeerrRequestsViewModel {
     }
 
     func delete(_ request: SeerrRequest) async {
-        guard let requestRepository else { return }
-        guard !busyRequestIDs.contains(request.id) else { return }
+        guard let requestRepository, !busyRequestIDs.contains(request.id) else { return }
 
         busyRequestIDs.insert(request.id)
         defer { busyRequestIDs.remove(request.id) }
@@ -160,8 +184,7 @@ final class SeerrRequestsViewModel {
     }
 
     func makeEditViewModel(for request: SeerrRequest) async -> SeerrMediaRequestViewModel? {
-        guard canEdit(request) else { return nil }
-        guard let key = mediaKey(for: request), let mediaRepository else { return nil }
+        guard canEdit(request), let key = mediaKey(for: request), let mediaRepository else { return nil }
 
         busyRequestIDs.insert(request.id)
         defer { busyRequestIDs.remove(request.id) }
@@ -177,13 +200,26 @@ final class SeerrRequestsViewModel {
     }
 
     func mediaTitle(for request: SeerrRequest) -> String {
-        guard let media = mediaDetail(for: request) else { return String(localized: "loading") }
+        guard let media = mediaDetail(for: request) else {
+            if let key = mediaKey(for: request), unavailableMediaKeys.contains(key) {
+                return String(localized: "seerr.requests.unavailableTitle")
+            }
+            return String(localized: "loading")
+        }
         switch media.mediaType {
         case .movie:
             return media.title ?? media.name ?? ""
         case .tv, .person, .none:
             return media.name ?? media.title ?? ""
         }
+    }
+
+    func openableMedia(for request: SeerrRequest) -> SeerrMedia? {
+        if let media = mediaDetail(for: request) {
+            return media
+        }
+        guard let key = mediaKey(for: request), unavailableMediaKeys.contains(key) else { return nil }
+        return SeerrMedia(placeholderID: key.tmdbId, mediaType: key.mediaType)
     }
 
     func mediaYear(for request: SeerrRequest) -> String? {
@@ -212,28 +248,16 @@ final class SeerrRequestsViewModel {
     }
 
     func displayName(for user: SeerrUser?) -> String {
-        if let name = user?.displayName, !name.isEmpty {
-            return name
-        }
-        if let id = user?.id {
-            return String(localized: "seerr.manageRequests.userId \(id)")
-        }
-        return String(localized: "seerr.manageRequests.unknownUser")
+        SeerrRequestFormatting.displayName(for: user)
     }
 
     func avatarURL(for user: SeerrUser?) -> URL? {
-        guard let avatar = user?.avatar, !avatar.isEmpty else { return nil }
-        if let url = URL(string: avatar), url.scheme != nil {
-            return url
-        }
-        guard let baseURL else { return nil }
-        let path = avatar.hasPrefix("/") ? String(avatar.dropFirst()) : avatar
-        return baseURL.appendingPathComponent(path)
+        SeerrRequestFormatting.avatarURL(for: user, baseURL: baseURL)
     }
 
     func relativeDateText(from value: String?) -> String? {
-        guard let date = Self.parsedDate(from: value) else { return nil }
-        return Self.relativeFormatter.localizedString(for: date, relativeTo: Date())
+        guard let date = SeerrRequestFormatting.parsedDate(from: value) else { return nil }
+        return SeerrRequestFormatting.relativeText(for: date)
     }
 
     func showsModified(_ request: SeerrRequest) -> Bool {
@@ -245,8 +269,7 @@ final class SeerrRequestsViewModel {
         on request: SeerrRequest,
         action: (SeerrRequestRepository) async throws -> Void,
     ) async {
-        guard let requestRepository else { return }
-        guard !busyRequestIDs.contains(request.id) else { return }
+        guard let requestRepository, !busyRequestIDs.contains(request.id) else { return }
 
         busyRequestIDs.insert(request.id)
         defer { busyRequestIDs.remove(request.id) }
@@ -311,8 +334,13 @@ final class SeerrRequestsViewModel {
                 }
             }
             for await (key, media) in group {
-                guard generation == loadGeneration, let media else { continue }
-                mediaDetails[key] = media
+                guard generation == loadGeneration else { continue }
+                if let media {
+                    mediaDetails[key] = media
+                    unavailableMediaKeys.remove(key)
+                } else {
+                    unavailableMediaKeys.insert(key)
+                }
             }
         }
     }
@@ -330,8 +358,8 @@ final class SeerrRequestsViewModel {
     }
 
     private func mediaKey(for request: SeerrRequest) -> SeerrRequestMediaKey? {
-        guard let media = request.media, let tmdbId = media.tmdbId else { return nil }
-        guard let mediaType = media.mediaType ?? request.type, mediaType != .person else { return nil }
+        guard let media = request.media, let tmdbId = media.tmdbId, let mediaType = media.mediaType ?? request.type,
+              mediaType != .person else { return nil }
         return SeerrRequestMediaKey(tmdbId: tmdbId, mediaType: mediaType)
     }
 
@@ -367,39 +395,16 @@ final class SeerrRequestsViewModel {
         errorMessage = String(localized: .init(key))
         isShowingError = true
     }
+}
 
-    private static func parsedDate(from value: String?) -> Date? {
-        guard let value else { return nil }
-        if let date = isoFormatterWithFractional.date(from: value) {
-            return date
-        }
-        return isoFormatter.date(from: value)
-    }
-
-    private static let isoFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter
-    }()
-
-    private static let isoFormatterWithFractional: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-
-    private static let relativeFormatter: RelativeDateTimeFormatter = {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .full
-        return formatter
-    }()
+struct SeerrRequestMediaKey: Hashable {
+    let tmdbId: Int
+    let mediaType: SeerrMediaType
 }
 
 enum SeerrSeasonSummary {
     static func text(for numbers: [Int], totalSeasons: Int?) -> String {
-        if let totalSeasons, totalSeasons > 0, numbers.count == totalSeasons,
-           numbers.first == 1 || numbers.first == 0
-        {
+        if let totalSeasons, totalSeasons > 0, Set(numbers).isSuperset(of: Set(1 ... totalSeasons)) {
             return String(localized: "seerr.manageRequests.seasons.all")
         }
         var ranges: [String] = []

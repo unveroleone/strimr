@@ -56,7 +56,11 @@ struct SeerrSeasonEpisodesSection: View {
                                     .foregroundStyle(.secondary)
                                 if let badge = viewModel.seasonAvailabilityBadge(for: season) {
                                     Spacer()
-                                    SeerrSeasonAvailabilityBadgeView(badge: badge, showsLabel: true)
+                                    SeerrSeasonAvailabilityBadgeView(
+                                        badge: badge,
+                                        showsLabel: true,
+                                        isDownloading: viewModel.isDownloading,
+                                    )
                                 }
                             }
                         },

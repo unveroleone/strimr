@@ -237,7 +237,7 @@ struct SeerrRequestsView: View {
     }
 
     private func open(_ request: SeerrRequest) {
-        guard let media = viewModel.mediaDetail(for: request) else { return }
+        guard let media = viewModel.openableMedia(for: request) else { return }
         onSelectMedia(media)
     }
 

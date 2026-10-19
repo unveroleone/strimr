@@ -68,15 +68,6 @@ final class SeerrMediaDetailViewModel {
         }
     }
 
-    var secondaryLabel: String? {
-        yearText
-    }
-
-    var tertiaryLabel: String? {
-        guard media.mediaType == .tv else { return nil }
-        return seasonCountText
-    }
-
     var yearText: String? {
         switch media.mediaType {
         case .movie:
@@ -209,19 +200,38 @@ final class SeerrMediaDetailViewModel {
             collection = nil
             return
         }
-        guard collection?.id != summary.id, let baseURL else { return }
+        guard let baseURL else { return }
         let repository = SeerrMediaRepository(baseURL: baseURL, session: session)
-        collection = try? await repository.getCollection(id: summary.id)
+        if let refreshed = try? await repository.getCollection(id: summary.id) {
+            collection = refreshed
+        }
     }
 
     var collectionRequestableParts: [SeerrMedia] {
         guard canRequestStandard, hasQuotaForMedia else { return [] }
         let parts = collection?.parts ?? []
-        return parts.filter { part in
+        let missing = parts.filter { part in
             guard part.mediaType == nil || part.mediaType == .movie else { return false }
             let status = part.mediaInfo?.status
             return status == nil || status == .unknown || status == .deleted
         }
+        guard let quota = quotaRestriction, quota.restricted else { return missing }
+        return Array(missing.prefix(max(0, quota.remaining ?? 0)))
+    }
+
+    var isCollectionLimitedByQuota: Bool {
+        guard let quota = quotaRestriction, quota.restricted else { return false }
+        let parts = collection?.parts ?? []
+        let missingCount = parts.count(where: { part in
+            let status = part.mediaInfo?.status
+            return (part.mediaType == nil || part.mediaType == .movie)
+                && (status == nil || status == .unknown || status == .deleted)
+        })
+        return missingCount > collectionRequestableParts.count
+    }
+
+    var collectionQuotaRemaining: Int {
+        quotaRestriction?.remaining ?? 0
     }
 
     func requestCollection() async {
@@ -234,6 +244,7 @@ final class SeerrMediaDetailViewModel {
         defer { isRequestingCollection = false }
 
         let repository = SeerrRequestRepository(baseURL: baseURL, session: session)
+        var failedCount = 0
         for part in parts {
             let payload = SeerrMediaRequestPayload(
                 mediaId: part.id,
@@ -249,24 +260,21 @@ final class SeerrMediaDetailViewModel {
             do {
                 try await repository.createRequest(payload)
             } catch {
-                collectionErrorMessage = errorMessage(for: error)
-                break
+                failedCount += 1
             }
         }
 
-        await loadDetails()
-        if let summary = media.collection, let refreshed = try? await SeerrMediaRepository(
-            baseURL: baseURL,
-            session: session,
-        )
-        .getCollection(id: summary.id) {
-            collection = refreshed
+        if failedCount > 0 {
+            let succeeded = parts.count - failedCount
+            collectionErrorMessage = String(localized: "seerr.collection.requestResult \(succeeded) \(parts.count)")
         }
+
+        await loadDetails()
+        await loadCollection()
     }
 
     var isDownloading: Bool {
-        let downloads = media.mediaInfo?.downloadStatus ?? []
-        return !downloads.isEmpty
+        media.mediaInfo?.isDownloading ?? false
     }
 
     func loadRelatedContent() async {

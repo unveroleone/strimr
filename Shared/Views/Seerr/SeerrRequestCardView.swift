@@ -23,7 +23,7 @@ struct SeerrRequestCardView: View {
             #else
             .buttonStyle(.plain)
             #endif
-            .disabled(viewModel.mediaDetail(for: request) == nil)
+            .disabled(viewModel.openableMedia(for: request) == nil)
 
             if hasActions {
                 actions

@@ -35,7 +35,7 @@ struct SeerrMediaArtworkView: View {
         }
         .overlay(alignment: availabilityAlignment) {
             if let status = media.mediaInfo?.status {
-                SeerrAvailabilityBadgeView(status: status)
+                SeerrAvailabilityBadgeView(status: status, isDownloading: media.mediaInfo?.isDownloading ?? false)
                     .padding(8)
             }
         }

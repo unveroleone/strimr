@@ -72,8 +72,16 @@ struct SeerrCollectionSection: View {
                 }
                 Button("common.actions.cancel", role: .cancel) {}
             } message: {
-                Text(parts.map { $0.title ?? $0.name ?? "" }.joined(separator: "\n"))
+                Text(confirmationMessage(for: parts))
             }
         }
+    }
+
+    private func confirmationMessage(for parts: [SeerrMedia]) -> String {
+        var lines = parts.map { $0.title ?? $0.name ?? "" }
+        if viewModel.isCollectionLimitedByQuota {
+            lines.append(String(localized: "seerr.collection.quotaLimited \(viewModel.collectionQuotaRemaining)"))
+        }
+        return lines.joined(separator: "\n")
     }
 }

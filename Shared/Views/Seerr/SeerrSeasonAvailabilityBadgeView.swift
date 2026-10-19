@@ -3,11 +3,12 @@ import SwiftUI
 struct SeerrSeasonAvailabilityBadgeView: View {
     let badge: SeerrSeasonAvailabilityBadge
     var showsLabel = false
+    var isDownloading = false
 
     var body: some View {
         switch badge {
         case let .media(status):
-            SeerrAvailabilityBadgeView(status: status, showsLabel: showsLabel)
+            SeerrAvailabilityBadgeView(status: status, showsLabel: showsLabel, isDownloading: isDownloading)
         case let .request(status):
             switch status {
             case .pending:
