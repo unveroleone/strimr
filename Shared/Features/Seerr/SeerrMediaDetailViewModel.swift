@@ -255,9 +255,11 @@ final class SeerrMediaDetailViewModel {
         }
 
         await loadDetails()
-        if let summary = media.collection, let refreshed = try? await SeerrMediaRepository(baseURL: baseURL, session: session)
-            .getCollection(id: summary.id)
-        {
+        if let summary = media.collection, let refreshed = try? await SeerrMediaRepository(
+            baseURL: baseURL,
+            session: session,
+        )
+        .getCollection(id: summary.id) {
             collection = refreshed
         }
     }

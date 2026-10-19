@@ -35,23 +35,26 @@ struct SeerrRequestCardView: View {
 
     private var posterSize: CGSize {
         #if os(tvOS)
-        CGSize(width: 140, height: 210)
+            CGSize(width: 140, height: 210)
         #else
-        CGSize(width: 80, height: 120)
+            CGSize(width: 80, height: 120)
         #endif
     }
 
     private var cardPadding: CGFloat {
         #if os(tvOS)
-        24
+            24
         #else
-        12
+            12
         #endif
     }
 
     private var poster: some View {
         let media = viewModel.mediaDetail(for: request)
-        return AsyncImage(url: TMDBImageService.posterURL(path: media?.posterPath, width: posterSize.width * 2)) { phase in
+        return AsyncImage(url: TMDBImageService.posterURL(
+            path: media?.posterPath,
+            width: posterSize.width * 2,
+        )) { phase in
             switch phase {
             case let .success(image):
                 image

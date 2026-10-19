@@ -73,14 +73,14 @@ struct SeerrRatingsRow: View {
         .background(.ultraThinMaterial, in: Capsule())
 
         #if os(tvOS)
-        content
-        #else
-        if let url, let destination = URL(string: url) {
-            Link(destination: destination) { content }
-                .buttonStyle(.plain)
-        } else {
             content
-        }
+        #else
+            if let url, let destination = URL(string: url) {
+                Link(destination: destination) { content }
+                    .buttonStyle(.plain)
+            } else {
+                content
+            }
         #endif
     }
 }

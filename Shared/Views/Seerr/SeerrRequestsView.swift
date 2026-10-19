@@ -13,28 +13,28 @@ struct SeerrRequestsView: View {
 
         content
             .navigationTitle("seerr.requests.title")
-            #if os(iOS)
+        #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     optionsMenu
                 }
             }
-            #elseif os(macOS)
+        #elseif os(macOS)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     optionsMenu
                 }
             }
-            #endif
+        #endif
             .task(id: viewModel.query) {
                 await viewModel.reload()
             }
-            #if !os(tvOS)
+        #if !os(tvOS)
             .refreshable {
                 await viewModel.reload()
             }
-            #endif
+        #endif
             .alert("integrations.seerr.error.title", isPresented: $bindableViewModel.isShowingError) {
                 Button("common.actions.done") {}
             } message: {
@@ -52,13 +52,13 @@ struct SeerrRequestsView: View {
             } message: { _ in
                 Text("seerr.requests.delete.message")
             }
-            #if os(tvOS)
+        #if os(tvOS)
             .navigationDestination(item: $editRequest) { state in
                 SeerrMediaRequestView(viewModel: state.viewModel) {
                     Task { await viewModel.reload() }
                 }
             }
-            #else
+        #else
             .sheet(item: $editRequest) { state in
                 SeerrMediaRequestSheetView(viewModel: state.viewModel) {
                     Task { await viewModel.reload() }
@@ -68,23 +68,23 @@ struct SeerrRequestsView: View {
                 .presentationBackground(.ultraThinMaterial)
                 #endif
             }
-            #endif
+        #endif
     }
 
     private var content: some View {
         ZStack {
             #if os(tvOS)
-            Color("Background").ignoresSafeArea()
+                Color("Background").ignoresSafeArea()
             #endif
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: contentSpacing) {
                     #if os(tvOS)
-                    HStack {
-                        optionsMenu
-                        Spacer()
-                    }
-                    .focusSection()
+                        HStack {
+                            optionsMenu
+                            Spacer()
+                        }
+                        .focusSection()
                     #endif
 
                     statusFilterBar
@@ -123,17 +123,17 @@ struct SeerrRequestsView: View {
 
     private var contentSpacing: CGFloat {
         #if os(tvOS)
-        24
+            24
         #else
-        12
+            12
         #endif
     }
 
     private var horizontalPadding: CGFloat {
         #if os(tvOS)
-        48
+            48
         #else
-        16
+            16
         #endif
     }
 
@@ -141,7 +141,9 @@ struct SeerrRequestsView: View {
         Binding(
             get: { requestPendingDeletion != nil },
             set: { isPresented in
-                if !isPresented { requestPendingDeletion = nil }
+                if !isPresented {
+                    requestPendingDeletion = nil
+                }
             },
         )
     }
@@ -157,7 +159,7 @@ struct SeerrRequestsView: View {
                         Text(LocalizedStringKey(filter.titleKey))
                             .font(.subheadline.weight(.semibold))
                             .lineLimit(1)
-                            #if !os(tvOS)
+                        #if !os(tvOS)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
                             .foregroundStyle(isSelected ? Color.white : Color.primary)
@@ -165,7 +167,7 @@ struct SeerrRequestsView: View {
                                 isSelected ? AnyShapeStyle(Color.purple) : AnyShapeStyle(.ultraThinMaterial),
                                 in: Capsule(),
                             )
-                            #endif
+                        #endif
                     }
                     #if os(tvOS)
                     .buttonStyle(.bordered)
@@ -182,7 +184,7 @@ struct SeerrRequestsView: View {
         }
         .scrollBounceBehavior(.basedOnSize)
         #if os(tvOS)
-        .focusSection()
+            .focusSection()
         #endif
     }
 
@@ -203,9 +205,9 @@ struct SeerrRequestsView: View {
             Toggle("seerr.requests.options.oldestFirst", isOn: $viewModel.query.isAscending)
         } label: {
             #if os(tvOS)
-            Label("seerr.requests.options.title", systemImage: optionsIcon)
+                Label("seerr.requests.options.title", systemImage: optionsIcon)
             #else
-            Image(systemName: optionsIcon)
+                Image(systemName: optionsIcon)
             #endif
         }
         .accessibilityLabel(Text("seerr.requests.options.title"))

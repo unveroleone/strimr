@@ -11,7 +11,9 @@ enum SeerrRequestStatusFilter: String, CaseIterable, Identifiable {
     case unavailable
     case deleted
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var titleKey: String {
         switch self {
@@ -42,7 +44,9 @@ enum SeerrRequestMediaFilter: String, CaseIterable, Identifiable {
     case movie
     case tv
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var titleKey: String {
         switch self {
@@ -60,7 +64,9 @@ enum SeerrRequestSort: String, CaseIterable, Identifiable {
     case added
     case modified
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var titleKey: String {
         switch self {

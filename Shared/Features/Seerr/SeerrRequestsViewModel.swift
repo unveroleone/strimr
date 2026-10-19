@@ -42,7 +42,9 @@ final class SeerrRequestsViewModel {
     }
 
     func canDelete(_ request: SeerrRequest) -> Bool {
-        if canManageRequests { return true }
+        if canManageRequests {
+            return true
+        }
         return request.status == .pending && isOwnRequest(request)
     }
 
