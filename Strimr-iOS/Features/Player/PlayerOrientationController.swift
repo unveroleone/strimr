@@ -10,6 +10,8 @@ final class PlayerOrientationController {
     @ObservationIgnored private weak var host: UIViewController?
     @ObservationIgnored private weak var scene: UIWindowScene?
     @ObservationIgnored private var previousMask: UIInterfaceOrientationMask?
+    @ObservationIgnored private var entryOrientation: UIInterfaceOrientation?
+    @ObservationIgnored private var didAutomaticallyRotate = false
     @ObservationIgnored private var isActive = false
     @ObservationIgnored private var didConsiderAutomaticRotation = false
     @ObservationIgnored private var videoSize: CGSize?
@@ -30,6 +32,7 @@ final class PlayerOrientationController {
         self.scene = scene
         if previousMask == nil {
             previousMask = AppDelegate.orientationMask(for: scene)
+            entryOrientation = scene.interfaceOrientation
         }
         if let pendingMask, let currentMask = mask(for: scene.interfaceOrientation),
            pendingMask.contains(currentMask)
@@ -60,9 +63,33 @@ final class PlayerOrientationController {
         if let scene, let previousMask {
             AppDelegate.setOrientationMask(previousMask, for: scene)
             invalidateSupportedOrientations()
+            if didAutomaticallyRotate, let entryOrientation, let entryMask = mask(for: entryOrientation),
+               previousMask.contains(entryMask)
+            {
+                restoreEntryOrientation(entryMask, in: scene)
+            }
         }
         previousMask = nil
+        entryOrientation = nil
+        didAutomaticallyRotate = false
         didConsiderAutomaticRotation = false
+    }
+
+    private func restoreEntryOrientation(_ mask: UIInterfaceOrientationMask, in scene: UIWindowScene) {
+        // Return to the browsing orientation once the player has finished dismissing.
+        let restore = { [self, weak scene] in
+            guard !isActive, let scene else { return }
+            invalidateSupportedOrientations()
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { error in
+                Task { @MainActor in ErrorReporter.capture(error) }
+            }
+        }
+        if let coordinator = host?.transitionCoordinator,
+           coordinator.animate(alongsideTransition: nil, completion: { _ in restore() })
+        {
+            return
+        }
+        restore()
     }
 
     func toggleLock() {
@@ -105,12 +132,14 @@ final class PlayerOrientationController {
         guard videoSize.width > videoSize.height, !scene.interfaceOrientation.isLandscape else { return }
         let allowedLandscape = AppDelegate.orientationMask(for: scene).intersection(.landscape)
         guard !allowedLandscape.isEmpty else { return }
-        requestRotation(to: allowedLandscape)
+        didAutomaticallyRotate = true
+        requestRotation(to: allowedLandscape, isAutomatic: true)
     }
 
     private func requestRotation(
         to mask: UIInterfaceOrientationMask,
         restoringOnFailure previousMask: UIInterfaceOrientationMask? = nil,
+        isAutomatic: Bool = false,
     ) {
         guard let scene else { return }
         let id = UUID()
@@ -123,6 +152,9 @@ final class PlayerOrientationController {
                 guard let self, self.isActive, self.requestID == id else { return }
                 self.pendingMask = nil
                 self.pendingDeadline = nil
+                if isAutomatic {
+                    self.didAutomaticallyRotate = false
+                }
                 if let previousMask {
                     self.isLocked = false
                     AppDelegate.setOrientationMask(previousMask, for: scene)
