@@ -15,7 +15,8 @@ final class PlayerOrientationController {
     @ObservationIgnored private var videoSize: CGSize?
     @ObservationIgnored private var isEnabled = false
     @ObservationIgnored private var isForeground = false
-    @ObservationIgnored private var pendingOrientation: UIInterfaceOrientation?
+    @ObservationIgnored private var pendingMask: UIInterfaceOrientationMask?
+    @ObservationIgnored private var pendingDeadline: ContinuousClock.Instant?
     @ObservationIgnored private var requestID = UUID()
 
     func start() {
@@ -30,8 +31,15 @@ final class PlayerOrientationController {
         if previousMask == nil {
             previousMask = AppDelegate.orientationMask(for: scene)
         }
-        if pendingOrientation == scene.interfaceOrientation {
-            pendingOrientation = nil
+        if let pendingMask, let currentMask = mask(for: scene.interfaceOrientation),
+           pendingMask.contains(currentMask)
+        {
+            self.pendingMask = nil
+            pendingDeadline = nil
+            if isLocked {
+                AppDelegate.setOrientationMask(currentMask, for: scene)
+                invalidateSupportedOrientations()
+            }
         }
         considerAutomaticRotation()
     }
@@ -46,7 +54,8 @@ final class PlayerOrientationController {
     func stop() {
         isActive = false
         requestID = UUID()
-        pendingOrientation = nil
+        pendingMask = nil
+        pendingDeadline = nil
         isLocked = false
         if let scene, let previousMask {
             AppDelegate.setOrientationMask(previousMask, for: scene)
@@ -63,16 +72,23 @@ final class PlayerOrientationController {
         requestID = UUID()
         if isLocked {
             isLocked = false
-            pendingOrientation = nil
+            pendingMask = nil
+            pendingDeadline = nil
             AppDelegate.setOrientationMask(previousMask ?? .all, for: scene)
             invalidateSupportedOrientations()
         } else {
-            let orientation = pendingOrientation ?? scene.interfaceOrientation
-            guard let mask = mask(for: orientation) else { return }
+            let mask: UIInterfaceOrientationMask
+            if let pendingMask, let pendingDeadline, ContinuousClock.now < pendingDeadline {
+                mask = pendingMask
+            } else if let currentMask = self.mask(for: scene.interfaceOrientation) {
+                mask = currentMask
+            } else {
+                return
+            }
             let oldMask = AppDelegate.orientationMask(for: scene)
             isLocked = true
             AppDelegate.setOrientationMask(mask, for: scene)
-            requestRotation(to: orientation, restoringOnFailure: oldMask)
+            requestRotation(to: mask, restoringOnFailure: oldMask)
         }
     }
 
@@ -87,28 +103,26 @@ final class PlayerOrientationController {
         // Once per player presentation, including when the first video is portrait.
         didConsiderAutomaticRotation = true
         guard videoSize.width > videoSize.height, !scene.interfaceOrientation.isLandscape else { return }
-        let target: UIInterfaceOrientation = UIDevice.current.orientation == .landscapeRight
-            ? .landscapeLeft : .landscapeRight
-        guard let targetMask = mask(for: target),
-              AppDelegate.orientationMask(for: scene).contains(targetMask)
-        else { return }
-        requestRotation(to: target)
+        let allowedLandscape = AppDelegate.orientationMask(for: scene).intersection(.landscape)
+        guard !allowedLandscape.isEmpty else { return }
+        requestRotation(to: allowedLandscape)
     }
 
     private func requestRotation(
-        to orientation: UIInterfaceOrientation,
+        to mask: UIInterfaceOrientationMask,
         restoringOnFailure previousMask: UIInterfaceOrientationMask? = nil,
     ) {
-        guard let scene, let mask = mask(for: orientation) else { return }
+        guard let scene else { return }
         let id = UUID()
         requestID = id
-        pendingOrientation = orientation
+        pendingMask = mask
+        pendingDeadline = .now.advanced(by: .seconds(1))
         invalidateSupportedOrientations()
         scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { [weak self] error in
             Task { @MainActor in
-                guard let self else { return }
-                guard self.isActive, self.requestID == id else { return }
-                self.pendingOrientation = nil
+                guard let self, self.isActive, self.requestID == id else { return }
+                self.pendingMask = nil
+                self.pendingDeadline = nil
                 if let previousMask {
                     self.isLocked = false
                     AppDelegate.setOrientationMask(previousMask, for: scene)
@@ -125,12 +139,13 @@ final class PlayerOrientationController {
             current.setNeedsUpdateOfSupportedInterfaceOrientations()
             controller = current.parent
         }
-        guard let root = host?.view.window?.rootViewController else { return }
-        root.setNeedsUpdateOfSupportedInterfaceOrientations()
-        controller = root.presentedViewController
-        while let current = controller {
-            current.setNeedsUpdateOfSupportedInterfaceOrientations()
-            controller = current.presentedViewController
+        let windows = host?.view.window.map { [$0] } ?? scene?.windows ?? []
+        for window in windows {
+            controller = window.rootViewController
+            while let current = controller {
+                current.setNeedsUpdateOfSupportedInterfaceOrientations()
+                controller = current.presentedViewController
+            }
         }
     }
 

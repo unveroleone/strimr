@@ -206,6 +206,11 @@ struct PlayerView: View {
                 .onChange(of: settingsManager.playback.autoRotateVideo) { _, _ in
                     updateAutomaticOrientation()
                 }
+                .onChange(of: orientationController.isLocked) { _, isLocked in
+                    showFeedbackMessage(isLocked
+                        ? String(localized: "player.controls.rotation.locked")
+                        : String(localized: "player.controls.rotation.unlocked"))
+                }
                 .onChange(of: isStreamingServerUnreachable) { _, isUnreachable in
                     guard isUnreachable else { return }
                     handleStreamingServerLost()
@@ -744,9 +749,6 @@ struct PlayerView: View {
 
     private func toggleRotationLock() {
         orientationController.toggleLock()
-        showFeedbackMessage(orientationController.isLocked
-            ? String(localized: "player.controls.rotation.locked")
-            : String(localized: "player.controls.rotation.unlocked"))
     }
 
     private func refreshTracks() {
