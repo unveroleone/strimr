@@ -23,11 +23,26 @@ struct PlaybackSettingsView: View {
     var sleepTimerMediaKind: MediaKind?
     var isSleepTimerAvailable = true
     var onSelectSleepTimer: (SleepTimerMode?) -> Void = { _ in }
+    var videoScaleMode: PlayerVideoScaleMode = .fit
+    var onSelectVideoScaleMode: (PlayerVideoScaleMode) -> Void = { _ in }
     var onClose: () -> Void
 
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    Picker(
+                        "player.settings.videoScale",
+                        selection: Binding(get: { videoScaleMode }, set: onSelectVideoScaleMode),
+                    ) {
+                        ForEach(PlayerVideoScaleMode.allCases) { mode in
+                            Text(mode.title).tag(mode)
+                        }
+                    }
+                } footer: {
+                    Text("player.settings.videoScale.description")
+                }
+
                 if !versions.isEmpty {
                     Section("player.settings.version") {
                         ForEach(versions) { version in

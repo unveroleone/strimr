@@ -1,6 +1,50 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "player.settings.videoScale.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fit shows the whole picture. Fill crops the edges to fill the screen. You can also pinch the video to switch."
+          }
+        }
+      }
+    },
+    "player.settings.videoScale.fill" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fill"
+          }
+        }
+      }
+    },
+    "player.settings.videoScale.fit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fit"
+          }
+        }
+      }
+    },
+    "player.settings.videoScale" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Video size"
+          }
+        }
+      }
+    },
     "" : {
 
     },

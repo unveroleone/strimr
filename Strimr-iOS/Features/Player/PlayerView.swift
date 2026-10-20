@@ -39,6 +39,7 @@ struct PlayerView: View {
     @State private var subtitleSearchErrorMessage = ""
     @State private var showingSubtitleSearchError = false
     @State private var isRotationLocked = false
+    @State private var lastPinchInteraction: ContinuousClock.Instant?
     @State private var isShowingSharePlayExitPrompt = false
     @State private var activePlaybackURL: URL?
     @State private var needsPlaybackReloadAfterBackground = false
@@ -236,6 +237,7 @@ struct PlayerView: View {
                         selectedAudioTrackID: selectedAudioTrackID,
                         selectedSubtitleTrackID: selectedSubtitleTrackID,
                         playbackRate: playbackRate,
+                        videoScaleMode: playerController.videoScaleMode,
                         syncItems: playerController.offsetMenuItems(burnsSubtitles: viewModel.burnsSubtitles),
                     ),
                     onDismiss: { showControls(temporarily: true) },
@@ -377,10 +379,11 @@ struct PlayerView: View {
                 maxCueDuration: playerController.subtitleMaxCueDuration,
                 appearance: settingsManager.playback.subtitleAppearance,
                 bottomPadding: controlsVisible ? 120 : 48,
-                videoSize: playerController.sourceVideoSize,
+                videoSize: playerController.displayVideoSize ?? playerController.sourceVideoSize,
                 assRenderer: playerController.assRenderer,
                 assReloadSignal: playerController.assReloadSignal,
                 activeSubtitleCodec: playerController.activeSubtitleCodec,
+                videoScaleMode: playerController.videoScaleMode,
             )
             .ignoresSafeArea()
             .opacity(pauseScreen.isPresented ? 0 : 1)
@@ -397,6 +400,7 @@ struct PlayerView: View {
                 .ignoresSafeArea()
                 .onGeometryChange(for: Double.self) { $0.size.width } action: { tapAreaWidth = $0 }
                 .onTapGesture { location in
+                    guard !isPinchInteractionRecent else { return }
                     pauseScreen.registerInteraction()
                     if isShowingInfoPanel {
                         hideInfoPanel()
@@ -406,11 +410,28 @@ struct PlayerView: View {
                 }
                 .gesture(
                     DragGesture(minimumDistance: 24).onEnded { value in
+                        guard !isPinchInteractionRecent else { return }
                         let translation = value.translation
                         if translation.height < -60, abs(translation.height) > abs(translation.width) {
                             showInfoPanel()
                         }
                     },
+                )
+                .simultaneousGesture(
+                    MagnifyGesture(minimumScaleDelta: 0.03)
+                        .onChanged { _ in
+                            lastPinchInteraction = .now
+                            doubleTapSeek.cancel()
+                            pauseScreen.registerInteraction()
+                        }
+                        .onEnded { value in
+                            lastPinchInteraction = .now
+                            if value.magnification > 1.12 {
+                                selectVideoScaleMode(.fill)
+                            } else if value.magnification < 0.88 {
+                                selectVideoScaleMode(.fit)
+                            }
+                        },
                 )
 
             if viewModel.isBuffering || isRecoveringServerAccess {
@@ -621,6 +642,8 @@ struct PlayerView: View {
             sleepTimerMediaKind: viewModel.media?.type,
             isSleepTimerAvailable: !sharePlayCoordinator.isInSession,
             onSelectSleepTimer: selectSleepTimer(_:),
+            videoScaleMode: playerController.videoScaleMode,
+            onSelectVideoScaleMode: selectVideoScaleMode(_:),
             onClose: { sheetPresentation.item = nil },
         )
         .presentationBackground(.ultraThinMaterial)
@@ -718,6 +741,17 @@ struct PlayerView: View {
         viewModel.position = chapter.startTime
         timelinePosition = chapter.startTime
         hideInfoPanel()
+    }
+
+    private var isPinchInteractionRecent: Bool {
+        guard let lastPinchInteraction else { return false }
+        return ContinuousClock.now - lastPinchInteraction < .milliseconds(250)
+    }
+
+    private func selectVideoScaleMode(_ mode: PlayerVideoScaleMode) {
+        guard playerController.videoScaleMode != mode else { return }
+        playerController.setVideoScaleMode(mode)
+        showFeedbackMessage(mode.title)
     }
 
     private func toggleRotationLock() {
@@ -1516,6 +1550,7 @@ private struct PlayerSheetRefreshID: Hashable {
     let selectedAudioTrackID: Int?
     let selectedSubtitleTrackID: Int?
     let playbackRate: Float
+    let videoScaleMode: PlayerVideoScaleMode
     let syncItems: [PlaybackOffsetMenuItem]
 }
 
