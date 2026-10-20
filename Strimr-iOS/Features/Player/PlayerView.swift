@@ -40,6 +40,7 @@ struct PlayerView: View {
     @State private var showingSubtitleSearchError = false
     @State private var isRotationLocked = false
     @State private var lastPinchInteraction: ContinuousClock.Instant?
+    @GestureState private var isPinching = false
     @State private var isShowingSharePlayExitPrompt = false
     @State private var activePlaybackURL: URL?
     @State private var needsPlaybackReloadAfterBackground = false
@@ -419,10 +420,8 @@ struct PlayerView: View {
                 )
                 .simultaneousGesture(
                     MagnifyGesture(minimumScaleDelta: 0.03)
-                        .onChanged { _ in
-                            lastPinchInteraction = .now
-                            doubleTapSeek.cancel()
-                            pauseScreen.registerInteraction()
+                        .updating($isPinching) { _, isPinching, _ in
+                            isPinching = true
                         }
                         .onEnded { value in
                             lastPinchInteraction = .now
@@ -433,6 +432,13 @@ struct PlayerView: View {
                             }
                         },
                 )
+                .onChange(of: isPinching) { _, isPinching in
+                    lastPinchInteraction = .now
+                    if isPinching {
+                        doubleTapSeek.cancel()
+                        pauseScreen.registerInteraction()
+                    }
+                }
 
             if viewModel.isBuffering || isRecoveringServerAccess {
                 bufferingOverlay
@@ -744,6 +750,7 @@ struct PlayerView: View {
     }
 
     private var isPinchInteractionRecent: Bool {
+        if isPinching { return true }
         guard let lastPinchInteraction else { return false }
         return ContinuousClock.now - lastPinchInteraction < .milliseconds(250)
     }
