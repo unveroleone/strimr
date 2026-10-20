@@ -8,6 +8,7 @@ struct AutomaticSkipFeedbackView: View {
         HStack(spacing: 8) {
             if let systemImage {
                 Image(systemName: systemImage)
+                    .accessibilityHidden(true)
             }
             Text(message)
         }
