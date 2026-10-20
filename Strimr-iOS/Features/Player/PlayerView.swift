@@ -106,6 +106,7 @@ struct PlayerView: View {
                     }
                     orientationController.start()
                     updateAutomaticOrientation()
+                    playerController.isPresentationOrientationReady = orientationController.isReadyForPresentation
                     configureSleepTimer()
                     showControls(temporarily: true)
                     playerController.setPlaybackRate(playbackRate)
@@ -205,6 +206,9 @@ struct PlayerView: View {
                 }
                 .onChange(of: settingsManager.playback.autoRotateVideo) { _, _ in
                     updateAutomaticOrientation()
+                }
+                .onChange(of: orientationController.isReadyForPresentation) { _, isReady in
+                    playerController.isPresentationOrientationReady = isReady
                 }
                 .onChange(of: orientationController.isLocked) { _, isLocked in
                     showFeedbackMessage(isLocked

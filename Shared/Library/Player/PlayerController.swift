@@ -29,6 +29,7 @@ final class PlayerController {
     var seekableLiveRange: ClosedRange<Double>?
     var sourceVideoSize: CGSize?
     private(set) var displayVideoSize: CGSize?
+    var isPresentationOrientationReady = true
     var videoFormatBadge: PlayerVideoFormatBadge?
     var subtitleCues: [SubtitleCue] = []
     var subtitleMaxCueDuration = 60.0

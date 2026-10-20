@@ -6,6 +6,7 @@ import UIKit
 @Observable
 final class PlayerOrientationController {
     private(set) var isLocked = false
+    private(set) var isReadyForPresentation = false
 
     @ObservationIgnored private weak var host: UIViewController?
     @ObservationIgnored private weak var scene: UIWindowScene?
@@ -20,10 +21,11 @@ final class PlayerOrientationController {
     @ObservationIgnored private var pendingMask: UIInterfaceOrientationMask?
     @ObservationIgnored private var pendingDeadline: ContinuousClock.Instant?
     @ObservationIgnored private var requestID = UUID()
+    @ObservationIgnored private var presentationTimeoutTask: Task<Void, Never>?
 
     func start() {
         isActive = true
-        considerAutomaticRotation()
+        isReadyForPresentation = false
     }
 
     func attach(_ host: UIViewController) {
@@ -39,6 +41,7 @@ final class PlayerOrientationController {
         {
             self.pendingMask = nil
             pendingDeadline = nil
+            finishInitialPresentation()
             if isLocked {
                 AppDelegate.setOrientationMask(currentMask, for: scene)
                 invalidateSupportedOrientations()
@@ -56,6 +59,7 @@ final class PlayerOrientationController {
 
     func stop() {
         isActive = false
+        finishInitialPresentation()
         requestID = UUID()
         pendingMask = nil
         pendingDeadline = nil
@@ -103,7 +107,11 @@ final class PlayerOrientationController {
             pendingDeadline = nil
             AppDelegate.setOrientationMask(previousMask ?? .all, for: scene)
             invalidateSupportedOrientations()
+            finishInitialPresentation()
         } else {
+            if pendingMask == nil {
+                finishInitialPresentation()
+            }
             let mask: UIInterfaceOrientationMask
             if let pendingMask, let pendingDeadline, ContinuousClock.now < pendingDeadline {
                 mask = pendingMask
@@ -120,20 +128,35 @@ final class PlayerOrientationController {
     }
 
     private func considerAutomaticRotation() {
-        guard isActive, isForeground, isEnabled,
-              UIDevice.current.userInterfaceIdiom == .phone,
-              !isLocked, !didConsiderAutomaticRotation,
-              let scene, scene.activationState == .foregroundActive,
+        guard isActive, !didConsiderAutomaticRotation else { return }
+        guard isEnabled, UIDevice.current.userInterfaceIdiom == .phone, !isLocked else {
+            didConsiderAutomaticRotation = true
+            finishInitialPresentation()
+            return
+        }
+        guard isForeground, let scene, scene.activationState == .foregroundActive,
               let videoSize, videoSize.width > 0, videoSize.height > 0
         else { return }
 
         // Once per player presentation, including when the first video is portrait.
         didConsiderAutomaticRotation = true
-        guard videoSize.width > videoSize.height, !scene.interfaceOrientation.isLandscape else { return }
+        guard videoSize.width > videoSize.height, !scene.interfaceOrientation.isLandscape else {
+            finishInitialPresentation()
+            return
+        }
         let allowedLandscape = AppDelegate.orientationMask(for: scene).intersection(.landscape)
-        guard !allowedLandscape.isEmpty else { return }
+        guard !allowedLandscape.isEmpty else {
+            finishInitialPresentation()
+            return
+        }
         didAutomaticallyRotate = true
         requestRotation(to: allowedLandscape, isAutomatic: true)
+    }
+
+    private func finishInitialPresentation() {
+        presentationTimeoutTask?.cancel()
+        presentationTimeoutTask = nil
+        isReadyForPresentation = true
     }
 
     private func requestRotation(
@@ -147,11 +170,24 @@ final class PlayerOrientationController {
         pendingMask = mask
         pendingDeadline = .now.advanced(by: .seconds(1))
         invalidateSupportedOrientations()
+        if isAutomatic {
+            // UIKit may decline a request without delivering a transition callback.
+            presentationTimeoutTask = Task { [weak self] in
+                do {
+                    try await Task.sleep(for: .seconds(2))
+                } catch {
+                    return
+                }
+                guard let self, self.isActive else { return }
+                self.finishInitialPresentation()
+            }
+        }
         scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { [weak self] error in
             Task { @MainActor in
                 guard let self, self.isActive, self.requestID == id else { return }
                 self.pendingMask = nil
                 self.pendingDeadline = nil
+                self.finishInitialPresentation()
                 if isAutomatic {
                     self.didAutomaticallyRotate = false
                 }
