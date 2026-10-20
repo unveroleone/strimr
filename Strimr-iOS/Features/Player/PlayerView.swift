@@ -775,7 +775,7 @@ struct PlayerView: View {
     private func selectVideoScaleMode(_ mode: PlayerVideoScaleMode) {
         // An explicit gesture or menu choice takes precedence over the deferred startup preference.
         didApplySavedVideoScaleMode = true
-        guard playerController.videoScaleMode != mode else { return }
+        guard playerController.videoScaleMode != mode || settingsManager.playback.videoScaleMode != mode else { return }
         playerController.setVideoScaleMode(mode)
         settingsManager.setVideoScaleMode(mode)
         showFeedbackMessage(mode.title)
