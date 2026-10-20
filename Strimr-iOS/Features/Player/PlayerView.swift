@@ -38,7 +38,7 @@ struct PlayerView: View {
     @State private var terminationAlertMessage = ""
     @State private var subtitleSearchErrorMessage = ""
     @State private var showingSubtitleSearchError = false
-    @State private var isRotationLocked = false
+    @State private var orientationController = PlayerOrientationController()
     @State private var isShowingSharePlayExitPrompt = false
     @State private var activePlaybackURL: URL?
     @State private var needsPlaybackReloadAfterBackground = false
@@ -83,6 +83,9 @@ struct PlayerView: View {
         let base = AnyView(
             playerScene
                 .statusBarHidden()
+                .background {
+                    PlayerOrientationHost(controller: orientationController)
+                }
                 .overlay {
                     playerOverlay
                 }
@@ -101,6 +104,8 @@ struct PlayerView: View {
                         guard scenePhase == .background else { return }
                         preparePlaybackForBackground()
                     }
+                    orientationController.start()
+                    updateAutomaticOrientation()
                     configureSleepTimer()
                     showControls(temporarily: true)
                     playerController.setPlaybackRate(playbackRate)
@@ -122,8 +127,7 @@ struct PlayerView: View {
                     automaticSkipFeedbackWorkItem?.cancel()
                     doubleTapSeek.cancel()
                     playerController.stop()
-                    AppDelegate.orientationLock = .all
-                    isRotationLocked = false
+                    orientationController.stop()
                     if sharePlayCoordinator.isInSession {
                         sharePlayCoordinator.leave()
                     }
@@ -191,6 +195,16 @@ struct PlayerView: View {
                 }
                 .onChange(of: scenePhase) { _, newValue in
                     handleScenePhaseChange(newValue)
+                    updateAutomaticOrientation()
+                }
+                .onChange(of: playerController.displayVideoSize) { _, _ in
+                    updateAutomaticOrientation()
+                }
+                .onChange(of: playerController.isPictureInPictureActive) { _, _ in
+                    updateAutomaticOrientation()
+                }
+                .onChange(of: settingsManager.playback.autoRotateVideo) { _, _ in
+                    updateAutomaticOrientation()
                 }
                 .onChange(of: isStreamingServerUnreachable) { _, isUnreachable in
                     guard isUnreachable else { return }
@@ -447,7 +461,7 @@ struct PlayerView: View {
                     onSkipMarker: activeMarker.map { marker in
                         { skipMarker(to: marker) }
                     },
-                    isRotationLocked: isRotationLocked,
+                    isRotationLocked: orientationController.isLocked,
                     onToggleRotationLock: toggleRotationLock,
                     isSharePlay: sharePlayCoordinator.isInSession,
                     showsPictureInPicture: playerController.showsPictureInPictureControl,
@@ -720,14 +734,19 @@ struct PlayerView: View {
         hideInfoPanel()
     }
 
+    private func updateAutomaticOrientation() {
+        orientationController.update(
+            videoSize: playerController.displayVideoSize,
+            enabled: settingsManager.playback.autoRotateVideo,
+            isForeground: scenePhase == .active && !playerController.isPictureInPictureActive,
+        )
+    }
+
     private func toggleRotationLock() {
-        if isRotationLocked {
-            AppDelegate.orientationLock = .all
-            isRotationLocked = false
-        } else {
-            AppDelegate.lockToCurrentOrientation()
-            isRotationLocked = true
-        }
+        orientationController.toggleLock()
+        showFeedbackMessage(orientationController.isLocked
+            ? String(localized: "player.controls.rotation.locked")
+            : String(localized: "player.controls.rotation.unlocked"))
     }
 
     private func refreshTracks() {

@@ -1,6 +1,50 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "player.controls.rotation.unlocked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rotation unlocked"
+          }
+        }
+      }
+    },
+    "player.controls.rotation.locked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rotation locked"
+          }
+        }
+      }
+    },
+    "settings.playback.autoRotateVideo.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open landscape videos in landscape on iPhone. You can still rotate freely or lock the player’s orientation."
+          }
+        }
+      }
+    },
+    "settings.playback.autoRotateVideo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto-rotate videos"
+          }
+        }
+      }
+    },
     "" : {
 
     },
