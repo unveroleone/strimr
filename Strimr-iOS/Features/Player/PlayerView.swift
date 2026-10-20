@@ -14,6 +14,7 @@ struct PlayerView: View {
     @State private var hideControlsWorkItem: DispatchWorkItem?
     @State private var automaticSkipFeedbackWorkItem: DispatchWorkItem?
     @State private var automaticSkipFeedbackMessage: String?
+    @State private var feedbackSystemImage: String?
     @State private var isScrubbing = false
     @State private var videoFormatBadge: PlayerVideoFormatBadge?
     @State private var sheetPresentation = IsolatedSheetPresentation<PlayerSheet>()
@@ -103,6 +104,7 @@ struct PlayerView: View {
                         guard scenePhase == .background else { return }
                         preparePlaybackForBackground()
                     }
+                    playerController.setVideoScaleMode(settingsManager.playback.videoScaleMode)
                     configureSleepTimer()
                     showControls(temporarily: true)
                     playerController.setPlaybackRate(playbackRate)
@@ -515,7 +517,10 @@ struct PlayerView: View {
             }
 
             if let automaticSkipFeedbackMessage {
-                AutomaticSkipFeedbackView(message: automaticSkipFeedbackMessage)
+                AutomaticSkipFeedbackView(
+                    message: automaticSkipFeedbackMessage,
+                    systemImage: feedbackSystemImage,
+                )
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .padding(.bottom, controlsVisible ? 150 : 32)
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
@@ -758,6 +763,7 @@ struct PlayerView: View {
     private func selectVideoScaleMode(_ mode: PlayerVideoScaleMode) {
         guard playerController.videoScaleMode != mode else { return }
         playerController.setVideoScaleMode(mode)
+        settingsManager.setVideoScaleMode(mode)
         showFeedbackMessage(mode.title)
     }
 
@@ -1295,14 +1301,19 @@ struct PlayerView: View {
     }
 
     private func showAutomaticSkipFeedback(for marker: SkipSegment) {
-        showFeedbackMessage(marker.automaticSkipConfirmation)
+        showFeedbackMessage(marker.automaticSkipConfirmation, systemImage: "forward.fill")
     }
 
-    private func showFeedbackMessage(_ message: String, duration: TimeInterval = 2.5) {
+    private func showFeedbackMessage(
+        _ message: String,
+        duration: TimeInterval = 2.5,
+        systemImage: String? = nil,
+    ) {
         automaticSkipFeedbackWorkItem?.cancel()
 
         withAnimation(.easeInOut(duration: 0.2)) {
             automaticSkipFeedbackMessage = message
+            feedbackSystemImage = systemImage
         }
 
         let workItem = DispatchWorkItem {

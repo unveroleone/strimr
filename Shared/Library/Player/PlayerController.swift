@@ -7,21 +7,7 @@ import Observation
 import SwiftAssRenderer
 import SwiftUI
 
-enum PlayerVideoScaleMode: String, CaseIterable, Identifiable {
-    case fit
-    case fill
-
-    var id: Self {
-        self
-    }
-
-    var title: String {
-        switch self {
-        case .fit: String(localized: "player.settings.videoScale.fit")
-        case .fill: String(localized: "player.settings.videoScale.fill")
-        }
-    }
-
+extension PlayerVideoScaleMode {
     var videoGravity: AVLayerVideoGravity {
         self == .fit ? .resizeAspect : .resizeAspectFill
     }
