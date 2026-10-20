@@ -78,7 +78,7 @@ final class PlayerOrientationController {
     private func restoreEntryOrientation(_ mask: UIInterfaceOrientationMask, in scene: UIWindowScene) {
         // Return to the browsing orientation once the player has finished dismissing.
         let restore = { [self, weak scene] in
-            guard !isActive, let scene else { return }
+            guard !isActive, let scene, scene.activationState == .foregroundActive else { return }
             invalidateSupportedOrientations()
             scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { error in
                 Task { @MainActor in ErrorReporter.capture(error) }
