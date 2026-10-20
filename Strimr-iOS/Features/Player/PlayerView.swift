@@ -41,6 +41,7 @@ struct PlayerView: View {
     @State private var showingSubtitleSearchError = false
     @State private var isRotationLocked = false
     @State private var lastPinchInteraction: ContinuousClock.Instant?
+    @State private var didApplySavedVideoScaleMode = false
     @GestureState private var isPinching = false
     @State private var isShowingSharePlayExitPrompt = false
     @State private var activePlaybackURL: URL?
@@ -104,7 +105,9 @@ struct PlayerView: View {
                         guard scenePhase == .background else { return }
                         preparePlaybackForBackground()
                     }
-                    playerController.setVideoScaleMode(settingsManager.playback.videoScaleMode)
+                    didApplySavedVideoScaleMode = false
+                    playerController.setVideoScaleMode(.fit)
+                    applySavedVideoScaleModeIfReady()
                     configureSleepTimer()
                     showControls(temporarily: true)
                     playerController.setPlaybackRate(playbackRate)
@@ -158,6 +161,9 @@ struct PlayerView: View {
                         duration: playerController.duration ?? viewModel.duration,
                         chapters: viewModel.chapters,
                     )
+                }
+                .onChange(of: playerController.isPresentationOrientationReady) { _, _ in
+                    applySavedVideoScaleModeIfReady()
                 }
                 .onChange(of: playerController.duration) { _, newValue in
                     viewModel.handlePlaybackDuration(newValue)
@@ -760,7 +766,15 @@ struct PlayerView: View {
         return ContinuousClock.now - lastPinchInteraction < .milliseconds(250)
     }
 
+    private func applySavedVideoScaleModeIfReady() {
+        guard !didApplySavedVideoScaleMode, playerController.isPresentationOrientationReady else { return }
+        didApplySavedVideoScaleMode = true
+        playerController.setVideoScaleMode(settingsManager.playback.videoScaleMode)
+    }
+
     private func selectVideoScaleMode(_ mode: PlayerVideoScaleMode) {
+        // An explicit gesture or menu choice takes precedence over the deferred startup preference.
+        didApplySavedVideoScaleMode = true
         guard playerController.videoScaleMode != mode else { return }
         playerController.setVideoScaleMode(mode)
         settingsManager.setVideoScaleMode(mode)

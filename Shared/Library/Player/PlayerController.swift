@@ -35,6 +35,7 @@ final class PlayerController {
     var seekableLiveRange: ClosedRange<Double>?
     var sourceVideoSize: CGSize?
     private(set) var displayVideoSize: CGSize?
+    var isPresentationOrientationReady = true
     private(set) var videoScaleMode = PlayerVideoScaleMode.fit
     var videoFormatBadge: PlayerVideoFormatBadge?
     var subtitleCues: [SubtitleCue] = []
