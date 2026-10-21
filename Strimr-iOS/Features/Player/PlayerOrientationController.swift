@@ -57,6 +57,12 @@ final class PlayerOrientationController {
         considerAutomaticRotation()
     }
 
+    func playbackDidFail() {
+        guard isActive else { return }
+        didConsiderAutomaticRotation = true
+        finishInitialPresentation()
+    }
+
     func stop() {
         isActive = false
         finishInitialPresentation()

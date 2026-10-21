@@ -14,6 +14,7 @@ struct PlayerView: View {
     @State private var hideControlsWorkItem: DispatchWorkItem?
     @State private var automaticSkipFeedbackWorkItem: DispatchWorkItem?
     @State private var automaticSkipFeedbackMessage: String?
+    @State private var feedbackSystemImage: String?
     @State private var isScrubbing = false
     @State private var videoFormatBadge: PlayerVideoFormatBadge?
     @State private var sheetPresentation = IsolatedSheetPresentation<PlayerSheet>()
@@ -183,6 +184,7 @@ struct PlayerView: View {
                 }
                 .onChange(of: viewModel.terminationMessage) { _, newValue in
                     guard let newValue else { return }
+                    orientationController.playbackDidFail()
                     terminationAlertMessage = newValue
                     showingTerminationAlert = true
                     playerController.pause()
@@ -511,11 +513,14 @@ struct PlayerView: View {
             }
 
             if let automaticSkipFeedbackMessage {
-                AutomaticSkipFeedbackView(message: automaticSkipFeedbackMessage)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .padding(.bottom, controlsVisible ? 150 : 32)
-                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                    .allowsHitTesting(false)
+                AutomaticSkipFeedbackView(
+                    message: automaticSkipFeedbackMessage,
+                    systemImage: feedbackSystemImage,
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .padding(.bottom, controlsVisible ? 150 : 32)
+                .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                .allowsHitTesting(false)
             }
 
             if pauseScreen.isPresented, let media = viewModel.media {
@@ -1275,14 +1280,19 @@ struct PlayerView: View {
     }
 
     private func showAutomaticSkipFeedback(for marker: SkipSegment) {
-        showFeedbackMessage(marker.automaticSkipConfirmation)
+        showFeedbackMessage(marker.automaticSkipConfirmation, systemImage: "forward.fill")
     }
 
-    private func showFeedbackMessage(_ message: String, duration: TimeInterval = 2.5) {
+    private func showFeedbackMessage(
+        _ message: String,
+        duration: TimeInterval = 2.5,
+        systemImage: String? = nil,
+    ) {
         automaticSkipFeedbackWorkItem?.cancel()
 
         withAnimation(.easeInOut(duration: 0.2)) {
             automaticSkipFeedbackMessage = message
+            feedbackSystemImage = systemImage
         }
 
         let workItem = DispatchWorkItem {
@@ -1518,6 +1528,7 @@ struct PlayerView: View {
     }
 
     private func showPlaybackError(_ message: String) {
+        orientationController.playbackDidFail()
         terminationAlertMessage = message
         showingTerminationAlert = true
         playerController.pause()
