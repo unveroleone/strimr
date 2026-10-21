@@ -1,50 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "player.settings.videoScale.description" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fit shows the whole picture. Fill crops the edges to fill the screen. You can also pinch the video to switch."
-          }
-        }
-      }
-    },
-    "player.settings.videoScale.fill" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fill"
-          }
-        }
-      }
-    },
-    "player.settings.videoScale.fit" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fit"
-          }
-        }
-      }
-    },
-    "player.settings.videoScale" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Video size"
-          }
-        }
-      }
-    },
     "" : {
 
     },
@@ -11945,6 +11901,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "版本"
+          }
+        }
+      }
+    },
+    "player.settings.videoScale" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Video size"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Format de l’image"
+          }
+        }
+      }
+    },
+    "player.settings.videoScale.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fit shows the whole picture. Fill crops the edges to fill the screen. You can also pinch the video to switch."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajuster affiche toute l’image. Remplir rogne les bords pour remplir l’écran. Vous pouvez aussi pincer la vidéo pour changer de mode."
+          }
+        }
+      }
+    },
+    "player.settings.videoScale.fill" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fill"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remplir"
+          }
+        }
+      }
+    },
+    "player.settings.videoScale.fit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fit"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajuster"
           }
         }
       }
