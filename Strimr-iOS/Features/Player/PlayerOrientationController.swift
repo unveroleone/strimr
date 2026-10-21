@@ -178,8 +178,8 @@ final class PlayerOrientationController {
                 } catch {
                     return
                 }
-                guard let self, self.isActive else { return }
-                self.finishInitialPresentation()
+                guard let self, isActive else { return }
+                finishInitialPresentation()
             }
         }
         scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { [weak self] error in
