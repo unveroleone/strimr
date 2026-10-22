@@ -240,9 +240,15 @@ struct SubtitleOverlayView: View {
         let canvasSize = image.canvasSize.width > 0 && image.canvasSize.height > 0
             ? image.canvasSize
             : videoSize
-        // Fit the whole canvas on screen rather than width-aligning it to the video: a 16:9 canvas
-        // over a cropped (e.g. 2.39:1) video would otherwise push lower-bar cues off a wide screen.
-        let canvasRect = zoomedRect(aspectFitRect(for: canvasSize, in: overlaySize), in: overlaySize)
+        let canvasRect = if videoScaleMode == .fill, let videoSize, videoSize.width > 0, videoSize.height > 0 {
+            // Map the canvas onto the cropped video rect so cues stay with the video content
+            // instead of being zoomed off-screen with the rest of the overlay.
+            videoRect(in: overlaySize)
+        } else {
+            // Fit the whole canvas on screen rather than width-aligning it to the video: a 16:9 canvas
+            // over a cropped (e.g. 2.39:1) video would otherwise push lower-bar cues off a wide screen.
+            aspectFitRect(for: canvasSize, in: overlaySize)
+        }
 
         return CGRect(
             x: canvasRect.minX + image.position.minX * canvasRect.width,
