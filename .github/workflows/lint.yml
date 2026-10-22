@@ -11,13 +11,10 @@ jobs:
     runs-on: xcode-27
     steps:
       - uses: actions/checkout@v4
-      # Pin the version the repository is formatted with; the runner image
-      # upgrades SwiftFormat with new default rules and breaks existing code.
       - name: Install SwiftFormat
         run: |
-          curl -sL -o "$RUNNER_TEMP/swiftformat.zip" \
-            https://github.com/nicklockwood/SwiftFormat/releases/download/0.63.1/swiftformat.zip
-          unzip -q "$RUNNER_TEMP/swiftformat.zip" -d "$RUNNER_TEMP/swiftformat"
+          curl -sSL -o "$RUNNER_TEMP/swiftformat.zip" https://github.com/nicklockwood/SwiftFormat/releases/download/0.64.0/swiftformat.zip
+          unzip -o -q "$RUNNER_TEMP/swiftformat.zip" -d "$RUNNER_TEMP/swiftformat"
           echo "$RUNNER_TEMP/swiftformat" >> "$GITHUB_PATH"
       - name: SwiftFormat
         run: |
