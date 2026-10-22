@@ -11905,70 +11905,48 @@
         }
       }
     },
-    "player.settings.videoScale" : {
+    "player.feedback.videoScale.fill" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Video size"
+            "value" : "Fill Screen"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Format de l’image"
+            "value" : "Plein écran"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全屏填充"
           }
         }
       }
     },
-    "player.settings.videoScale.description" : {
+    "player.feedback.videoScale.fit" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Fit shows the whole picture. Fill crops the edges to fill the screen. You can also pinch the video to switch."
+            "value" : "Full Picture"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ajuster affiche toute l’image. Remplir rogne les bords pour remplir l’écran. Vous pouvez aussi pincer la vidéo pour changer de mode."
-          }
-        }
-      }
-    },
-    "player.settings.videoScale.fill" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fill"
+            "value" : "Image entière"
           }
         },
-        "fr" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Remplir"
-          }
-        }
-      }
-    },
-    "player.settings.videoScale.fit" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fit"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajuster"
+            "value" : "完整画面"
           }
         }
       }

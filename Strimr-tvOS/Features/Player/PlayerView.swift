@@ -11,8 +11,8 @@ struct PlayerView: View {
     @State private var playerController = PlayerController()
     @State private var controlsVisible = true
     @State private var hideControlsWorkItem: DispatchWorkItem?
-    @State private var automaticSkipFeedbackWorkItem: DispatchWorkItem?
-    @State private var automaticSkipFeedbackMessage: String?
+    @State private var feedbackWorkItem: DispatchWorkItem?
+    @State private var feedbackMessage: String?
     @State private var isScrubbing = false
     @State private var videoFormatBadge: PlayerVideoFormatBadge?
     @State private var audioTracks: [PlayerTrack] = []
@@ -123,7 +123,7 @@ struct PlayerView: View {
                     pauseScreen.cancel()
                     viewModel.handleStop()
                     hideControlsWorkItem?.cancel()
-                    automaticSkipFeedbackWorkItem?.cancel()
+                    feedbackWorkItem?.cancel()
                     seekFeedbackWorkItem?.cancel()
                     playerController.stop()
                     if sharePlayCoordinator.isInSession {
@@ -474,8 +474,8 @@ struct PlayerView: View {
                 seekFeedbackOverlay(seekFeedback)
             }
 
-            if let automaticSkipFeedbackMessage {
-                AutomaticSkipFeedbackView(message: automaticSkipFeedbackMessage)
+            if let feedbackMessage {
+                PlayerFeedbackView(message: feedbackMessage)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .padding(.bottom, controlsVisible ? 330 : 48)
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
@@ -1052,9 +1052,8 @@ struct PlayerView: View {
     }
 
     private func applyResumeOffsetIfNeeded() {
-        guard !sharePlayCoordinator.isInSession else { return }
-        guard viewModel.shouldResumeFromOffset else { return }
-        guard !appliedResumeOffset, let offset = viewModel.resumePosition, offset > 0 else { return }
+        guard !sharePlayCoordinator.isInSession, viewModel.shouldResumeFromOffset, !appliedResumeOffset,
+              let offset = viewModel.resumePosition, offset > 0 else { return }
         appliedResumeOffset = true
         playerController.seek(to: offset)
     }
@@ -1102,8 +1101,7 @@ struct PlayerView: View {
     }
 
     private func startPlaybackIfNeeded(url: URL?) {
-        guard let url else { return }
-        guard activePlaybackURL != url else { return }
+        guard let url, activePlaybackURL != url else { return }
 
         let startPosition = sharePlayCoordinator.activity?.initialPosition
             ?? (viewModel.shouldResumeFromOffset ? viewModel.resumePosition : nil)
@@ -1332,8 +1330,7 @@ struct PlayerView: View {
     }
 
     private func handleAutomaticMarkerSkipIfNeeded() {
-        guard !isScrubbing, !sharePlayCoordinator.isInSession else { return }
-        guard let marker = viewModel.automaticSkipMarker(
+        guard !isScrubbing, !sharePlayCoordinator.isInSession, let marker = viewModel.automaticSkipMarker(
             autoSkipIntros: settingsManager.playback.autoSkipIntros,
             autoSkipCredits: settingsManager.playback.autoSkipCredits,
             autoSkipCommercials: settingsManager.playback.autoSkipCommercials,
@@ -1352,18 +1349,18 @@ struct PlayerView: View {
     }
 
     private func showFeedbackMessage(_ message: String, duration: TimeInterval = 2.5) {
-        automaticSkipFeedbackWorkItem?.cancel()
+        feedbackWorkItem?.cancel()
 
         withAnimation(.easeInOut(duration: 0.2)) {
-            automaticSkipFeedbackMessage = message
+            feedbackMessage = message
         }
 
         let workItem = DispatchWorkItem {
             withAnimation(.easeInOut(duration: 0.2)) {
-                automaticSkipFeedbackMessage = nil
+                feedbackMessage = nil
             }
         }
-        automaticSkipFeedbackWorkItem = workItem
+        feedbackWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: workItem)
     }
 
@@ -1474,14 +1471,7 @@ struct PlayerView: View {
     private func handleEpisodeCompletion(for _: MediaItem, stopsForSleepTimer: Bool) async {
         await viewModel.markPlaybackFinished()
 
-        guard viewModel.usesCommonPlaybackQueue else {
-            if !stopsForSleepTimer {
-                await MainActor.run { dismissPlayer() }
-            }
-            return
-        }
-
-        guard let nextViewModel = viewModel.makeNextPlayerViewModel() else {
+        guard viewModel.usesCommonPlaybackQueue, let nextViewModel = viewModel.makeNextPlayerViewModel() else {
             if !stopsForSleepTimer {
                 await MainActor.run { dismissPlayer() }
             }

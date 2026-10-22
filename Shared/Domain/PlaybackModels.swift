@@ -9,10 +9,17 @@ enum PlayerVideoScaleMode: String, Codable, CaseIterable, Sendable, Hashable, Id
         self
     }
 
-    var title: String {
+    var feedbackTitle: String {
         switch self {
-        case .fit: String(localized: "player.settings.videoScale.fit")
-        case .fill: String(localized: "player.settings.videoScale.fill")
+        case .fit: String(localized: "player.feedback.videoScale.fit")
+        case .fill: String(localized: "player.feedback.videoScale.fill")
+        }
+    }
+
+    var feedbackSystemImage: String {
+        switch self {
+        case .fit: "arrow.down.right.and.arrow.up.left"
+        case .fill: "arrow.up.left.and.arrow.down.right"
         }
     }
 }

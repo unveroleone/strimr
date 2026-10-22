@@ -12,8 +12,8 @@ struct PlayerView: View {
     @State private var playerController = PlayerController()
     @State private var controlsVisible = true
     @State private var hideControlsWorkItem: DispatchWorkItem?
-    @State private var automaticSkipFeedbackWorkItem: DispatchWorkItem?
-    @State private var automaticSkipFeedbackMessage: String?
+    @State private var feedbackWorkItem: DispatchWorkItem?
+    @State private var feedbackMessage: String?
     @State private var feedbackSystemImage: String?
     @State private var isScrubbing = false
     @State private var videoFormatBadge: PlayerVideoFormatBadge?
@@ -126,7 +126,7 @@ struct PlayerView: View {
                     viewModel.handleStop()
                     playerController.onPictureInPictureStartFailed = nil
                     hideControlsWorkItem?.cancel()
-                    automaticSkipFeedbackWorkItem?.cancel()
+                    feedbackWorkItem?.cancel()
                     doubleTapSeek.cancel()
                     playerController.stop()
                     AppDelegate.orientationLock = .all
@@ -246,7 +246,6 @@ struct PlayerView: View {
                         selectedAudioTrackID: selectedAudioTrackID,
                         selectedSubtitleTrackID: selectedSubtitleTrackID,
                         playbackRate: playbackRate,
-                        videoScaleMode: playerController.videoScaleMode,
                         syncItems: playerController.offsetMenuItems(burnsSubtitles: viewModel.burnsSubtitles),
                     ),
                     onDismiss: { showControls(temporarily: true) },
@@ -522,9 +521,9 @@ struct PlayerView: View {
                     .allowsHitTesting(false)
             }
 
-            if let automaticSkipFeedbackMessage {
-                AutomaticSkipFeedbackView(
-                    message: automaticSkipFeedbackMessage,
+            if let feedbackMessage {
+                PlayerFeedbackView(
+                    message: feedbackMessage,
                     systemImage: feedbackSystemImage,
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -659,8 +658,6 @@ struct PlayerView: View {
             sleepTimerMediaKind: viewModel.media?.type,
             isSleepTimerAvailable: !sharePlayCoordinator.isInSession,
             onSelectSleepTimer: selectSleepTimer(_:),
-            videoScaleMode: playerController.videoScaleMode,
-            onSelectVideoScaleMode: selectVideoScaleMode(_:),
             onClose: { sheetPresentation.item = nil },
         )
         .presentationBackground(.ultraThinMaterial)
@@ -775,12 +772,12 @@ struct PlayerView: View {
     }
 
     private func selectVideoScaleMode(_ mode: PlayerVideoScaleMode) {
-        // An explicit gesture or menu choice takes precedence over the deferred startup preference.
+        // An explicit gesture takes precedence over the deferred startup preference.
         didApplySavedVideoScaleMode = true
         guard playerController.videoScaleMode != mode || settingsManager.playback.videoScaleMode != mode else { return }
         playerController.setVideoScaleMode(mode)
         settingsManager.setVideoScaleMode(mode)
-        showFeedbackMessage(mode.title)
+        showFeedbackMessage(mode.feedbackTitle, systemImage: mode.feedbackSystemImage)
     }
 
     private func toggleRotationLock() {
@@ -1040,8 +1037,9 @@ struct PlayerView: View {
     }
 
     private func applyResumeOffsetIfNeeded() {
-        guard !sharePlayCoordinator.isInSession, viewModel.shouldResumeFromOffset, !appliedResumeOffset,
-              let offset = viewModel.resumePosition, offset > 0 else { return }
+        guard !sharePlayCoordinator.isInSession else { return }
+        guard viewModel.shouldResumeFromOffset else { return }
+        guard !appliedResumeOffset, let offset = viewModel.resumePosition, offset > 0 else { return }
         appliedResumeOffset = true
         playerController.seek(to: offset)
     }
@@ -1093,7 +1091,8 @@ struct PlayerView: View {
     }
 
     private func startPlaybackIfNeeded(url: URL?) {
-        guard let url, activePlaybackURL != url else { return }
+        guard let url else { return }
+        guard activePlaybackURL != url else { return }
 
         let startPosition = sharePlayCoordinator.activity?.initialPosition
             ?? (viewModel.shouldResumeFromOffset ? viewModel.resumePosition : nil)
@@ -1192,7 +1191,8 @@ struct PlayerView: View {
                 }
             }
         }
-        guard activePlaybackURL != nil, !needsPlaybackReloadAfterBackground, !playerController.isPictureInPictureActive,
+        guard activePlaybackURL != nil, !needsPlaybackReloadAfterBackground else { return }
+        guard !playerController.isPictureInPictureActive,
               !playerController.isPictureInPictureTransitioning
         else { return }
 
@@ -1298,7 +1298,8 @@ struct PlayerView: View {
     }
 
     private func handleAutomaticMarkerSkipIfNeeded() {
-        guard !isScrubbing, !sharePlayCoordinator.isInSession, let marker = viewModel.automaticSkipMarker(
+        guard !isScrubbing, !sharePlayCoordinator.isInSession else { return }
+        guard let marker = viewModel.automaticSkipMarker(
             autoSkipIntros: settingsManager.playback.autoSkipIntros,
             autoSkipCredits: settingsManager.playback.autoSkipCredits,
             autoSkipCommercials: settingsManager.playback.autoSkipCommercials,
@@ -1321,19 +1322,19 @@ struct PlayerView: View {
         duration: TimeInterval = 2.5,
         systemImage: String? = nil,
     ) {
-        automaticSkipFeedbackWorkItem?.cancel()
+        feedbackWorkItem?.cancel()
 
         withAnimation(.easeInOut(duration: 0.2)) {
-            automaticSkipFeedbackMessage = message
+            feedbackMessage = message
             feedbackSystemImage = systemImage
         }
 
         let workItem = DispatchWorkItem {
             withAnimation(.easeInOut(duration: 0.2)) {
-                automaticSkipFeedbackMessage = nil
+                feedbackMessage = nil
             }
         }
-        automaticSkipFeedbackWorkItem = workItem
+        feedbackWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: workItem)
     }
 
@@ -1371,7 +1372,14 @@ struct PlayerView: View {
     private func handleEpisodeCompletion(for _: MediaItem, stopsForSleepTimer: Bool) async {
         await viewModel.markPlaybackFinished()
 
-        guard viewModel.usesCommonPlaybackQueue, let nextViewModel = viewModel.makeNextPlayerViewModel() else {
+        guard viewModel.usesCommonPlaybackQueue else {
+            if !stopsForSleepTimer {
+                await MainActor.run { dismissPlayer(force: true) }
+            }
+            return
+        }
+
+        guard let nextViewModel = viewModel.makeNextPlayerViewModel() else {
             if !stopsForSleepTimer {
                 await MainActor.run { dismissPlayer(force: true) }
             }
@@ -1573,7 +1581,6 @@ private struct PlayerSheetRefreshID: Hashable {
     let selectedAudioTrackID: Int?
     let selectedSubtitleTrackID: Int?
     let playbackRate: Float
-    let videoScaleMode: PlayerVideoScaleMode
     let syncItems: [PlaybackOffsetMenuItem]
 }
 

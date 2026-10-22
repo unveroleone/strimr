@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct AutomaticSkipFeedbackView: View {
+struct PlayerFeedbackView: View {
     let message: String
     var systemImage: String? = "forward.fill"
 

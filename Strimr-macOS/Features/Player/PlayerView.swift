@@ -61,8 +61,8 @@ struct PlayerView: View {
     @State private var fullscreenCoordinator = PlayerFullscreenCoordinator()
     @State private var controlsVisible = true
     @State private var hideControlsWorkItem: DispatchWorkItem?
-    @State private var automaticSkipFeedbackWorkItem: DispatchWorkItem?
-    @State private var automaticSkipFeedbackMessage: String?
+    @State private var feedbackWorkItem: DispatchWorkItem?
+    @State private var feedbackMessage: String?
     @State private var seekFeedback: SeekFeedback?
     @State private var seekFeedbackWorkItem: DispatchWorkItem?
     @State private var isPointerInsidePlayer = false
@@ -183,8 +183,8 @@ struct PlayerView: View {
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }
 
-            if let automaticSkipFeedbackMessage {
-                AutomaticSkipFeedbackView(message: automaticSkipFeedbackMessage)
+            if let feedbackMessage {
+                PlayerFeedbackView(message: feedbackMessage)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .padding(.bottom, controlsVisible ? 110 : 32)
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
@@ -268,7 +268,7 @@ struct PlayerView: View {
                     sleepTimer.cancel()
                     pauseScreen.cancel()
                     hideControlsWorkItem?.cancel()
-                    automaticSkipFeedbackWorkItem?.cancel()
+                    feedbackWorkItem?.cancel()
                     seekFeedbackWorkItem?.cancel()
                     fullscreenCoordinator.detach()
                     restoreCursor()
@@ -1421,13 +1421,13 @@ struct PlayerView: View {
     }
 
     private func handleAutomaticMarkerSkipIfNeeded() {
-        guard !isScrubbing else { return }
-        guard !(participatesInSharePlay && sharePlayCoordinator.isInSession) else { return }
-        guard let marker = viewModel.automaticSkipMarker(
-            autoSkipIntros: settingsManager.playback.autoSkipIntros,
-            autoSkipCredits: settingsManager.playback.autoSkipCredits,
-            autoSkipCommercials: settingsManager.playback.autoSkipCommercials,
-        ) else {
+        guard !isScrubbing, !(participatesInSharePlay && sharePlayCoordinator.isInSession),
+              let marker = viewModel.automaticSkipMarker(
+                  autoSkipIntros: settingsManager.playback.autoSkipIntros,
+                  autoSkipCredits: settingsManager.playback.autoSkipCredits,
+                  autoSkipCommercials: settingsManager.playback.autoSkipCommercials,
+              )
+        else {
             return
         }
 
@@ -1442,18 +1442,18 @@ struct PlayerView: View {
     }
 
     private func showFeedbackMessage(_ message: String, duration: TimeInterval = 2.5) {
-        automaticSkipFeedbackWorkItem?.cancel()
+        feedbackWorkItem?.cancel()
 
         withAnimation(.easeInOut(duration: 0.2)) {
-            automaticSkipFeedbackMessage = message
+            feedbackMessage = message
         }
 
         let workItem = DispatchWorkItem {
             withAnimation(.easeInOut(duration: 0.2)) {
-                automaticSkipFeedbackMessage = nil
+                feedbackMessage = nil
             }
         }
-        automaticSkipFeedbackWorkItem = workItem
+        feedbackWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: workItem)
     }
 
@@ -1462,18 +1462,7 @@ struct PlayerView: View {
         await viewModel.markPlaybackFinished()
 
         if viewModel.media?.type == .episode {
-            guard viewModel.usesCommonPlaybackQueue else {
-                if isSharePlayPlayback {
-                    sharePlayCoordinator.leave()
-                    participatesInSharePlay = false
-                    closePlayer(force: true)
-                } else {
-                    playerController.pause()
-                }
-                return
-            }
-
-            guard let nextViewModel = viewModel.makeNextPlayerViewModel() else {
+            guard viewModel.usesCommonPlaybackQueue, let nextViewModel = viewModel.makeNextPlayerViewModel() else {
                 if isSharePlayPlayback {
                     sharePlayCoordinator.leave()
                     participatesInSharePlay = false
