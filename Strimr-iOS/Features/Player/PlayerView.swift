@@ -40,7 +40,9 @@ struct PlayerView: View {
     @State private var subtitleSearchErrorMessage = ""
     @State private var showingSubtitleSearchError = false
     @State private var isRotationLocked = false
-    @State private var isRotationLockAvailable = true
+    @State private var layoutMode = PlayerLayoutMode.fullScreen
+    @State private var hinge = PlayerHingeState.unavailable
+    @State private var isTabletopLocked = false
     @State private var isShowingSharePlayExitPrompt = false
     @State private var activePlaybackURL: URL?
     @State private var needsPlaybackReloadAfterBackground = false
@@ -83,15 +85,29 @@ struct PlayerView: View {
 
     private var configuredPlayerView: some View {
         let base = AnyView(
-            playerScene
-                .statusBarHidden()
-                .onRotationLockAvailabilityChange { isRotationLockAvailable = $0 }
-                .overlay {
+            PlayerFoldLayout(
+                mode: $layoutMode,
+                hinge: $hinge,
+                isPictureInPictureActive: playerController.isPictureInPictureActive
+                    || playerController.isPictureInPictureTransitioning,
+            ) {
+                playerScene
+            } videoOverlay: {
+                tabletopVideoOverlay
+            } controls: {
+                tabletopControls
+            }
+            .statusBarHidden()
+            .overlay {
+                if !layoutMode.isTabletop {
                     playerOverlay
                 }
-                .overlay(alignment: .bottom) {
+            }
+            .overlay(alignment: .bottom) {
+                if !layoutMode.isTabletop {
                     infoPanelOverlay
-                },
+                }
+            },
         )
 
         let lifecycle = AnyView(
@@ -145,6 +161,9 @@ struct PlayerView: View {
                 .onChange(of: playerController.isPaused) { _, isPaused in
                     syncPlaybackState()
                     sleepTimer.handlePlaybackStateChange(isPaused: isPaused)
+                    if layoutMode.isTabletop, !isTabletopLocked {
+                        showControls(temporarily: true)
+                    }
                 }
                 .onChange(of: playerController.isBuffering) { _, _ in
                     syncPlaybackState()
@@ -337,6 +356,12 @@ struct PlayerView: View {
                     hideControls()
                 }
             }
+            .onChange(of: layoutMode.isTabletop) { _, isTabletop in
+                if !isTabletop {
+                    isTabletopLocked = false
+                }
+                showControls(temporarily: true)
+            }
     }
 
     private var isPauseScreenEligible: Bool {
@@ -362,6 +387,7 @@ struct PlayerView: View {
             && qualityNoticeMessage == nil
             && viewModel.launchNotice == nil
             && !isShowingSharePlayExitPrompt
+            && !layoutMode.isTabletop
     }
 
     private var playerScene: some View {
@@ -379,7 +405,7 @@ struct PlayerView: View {
                 currentTime: playerController.subtitlePosition,
                 maxCueDuration: playerController.subtitleMaxCueDuration,
                 appearance: settingsManager.playback.subtitleAppearance,
-                bottomPadding: controlsVisible ? 120 : 48,
+                bottomPadding: controlsVisible && !layoutMode.isTabletop ? 120 : 48,
                 videoSize: playerController.sourceVideoSize,
                 assRenderer: playerController.assRenderer,
                 assReloadSignal: playerController.assReloadSignal,
@@ -422,55 +448,8 @@ struct PlayerView: View {
             }
 
             if controlsVisible, !isShowingInfoPanel {
-                PlayerControlsView(
-                    media: viewModel.media,
-                    isPaused: viewModel.isPaused,
-                    isBuffering: viewModel.isBuffering,
-                    videoResolution: viewModel.media?.playbackResolutionLabel,
-                    videoFormatBadge: videoFormatBadge,
-                    position: timelineBinding,
-                    duration: viewModel.duration,
-                    bufferedAhead: viewModel.bufferedAhead,
-                    bufferBasePosition: viewModel.position,
-                    playbackRate: playbackRate,
-                    showsEndsAtTime: settingsManager.playback.showEndsAtTime,
-                    isScrubbing: isScrubbing,
-                    onDismiss: { dismissPlayer() },
-                    onShowSettings: showSettings,
-                    chapters: viewModel.chapters,
-                    showsChaptersOnTimeline: settingsManager.playback.showChaptersOnTimeline,
-                    scrubPreview: playerController.scrubPreview,
-                    onSeekBackward: { jump(by: -seekBackwardInterval) },
-                    onPlayPause: togglePlayPause,
-                    onSeekForward: { jump(by: seekForwardInterval) },
-                    seekBackwardSeconds: settingsManager.playback.seekBackwardSeconds,
-                    seekForwardSeconds: settingsManager.playback.seekForwardSeconds,
-                    onScrubbingChanged: handleScrubbing(editing:),
-                    skipMarkerTitle: skipTitle,
-                    onSkipMarker: activeMarker.map { marker in
-                        { skipMarker(to: marker) }
-                    },
-                    isRotationLocked: isRotationLocked,
-                    onToggleRotationLock: rotationLockAction,
-                    isSharePlay: sharePlayCoordinator.isInSession,
-                    showsPictureInPicture: playerController.showsPictureInPictureControl,
-                    isPictureInPictureEnabled: playerController.isPictureInPictureAvailable
-                        && !playerController.isPictureInPictureActive
-                        && !playerController.isPictureInPictureTransitioning,
-                    onStartPictureInPicture: playerController.startPictureInPicture,
-                    hasInfoPanel: canShowInfoPanel,
-                    onShowInfoPanel: showInfoPanel,
-                    isLive: viewModel.isLivePlayback,
-                    behindLiveSeconds: playerController.behindLiveSeconds,
-                    onGoLive: playerController.seekToLiveEdge,
-                    canSwitchPreviousChannel: viewModel.canSwitchToPreviousLiveChannel,
-                    canSwitchNextChannel: viewModel.canSwitchToNextLiveChannel,
-                    onPreviousChannel: { switchLiveChannel(by: -1) },
-                    onNextChannel: { switchLiveChannel(by: 1) },
-                    showsSettingsIndicator: playerController.subtitleDelayMilliseconds != 0,
-                    sleepTimer: sleepTimer,
-                )
-                .transition(.opacity)
+                playerControls
+                    .transition(.opacity)
             }
 
             if let activeOffsetBar, !isShowingInfoPanel {
@@ -482,21 +461,9 @@ struct PlayerView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             }
 
-            if let pending = doubleTapSeek.pending {
-                SeekFeedbackView(feedback: doubleTapSeekFeedback(for: pending))
-                    .padding(.horizontal, 32)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: pending.forward ? .trailing : .leading)
-                    .transition(.opacity)
-                    .allowsHitTesting(false)
-            }
+            seekFeedbackOverlay
 
-            if let automaticSkipFeedbackMessage {
-                AutomaticSkipFeedbackView(message: automaticSkipFeedbackMessage)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .padding(.bottom, controlsVisible ? 150 : 32)
-                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                    .allowsHitTesting(false)
-            }
+            automaticSkipFeedbackOverlay(bottomPadding: controlsVisible ? 150 : 32)
 
             if pauseScreen.isPresented, let media = viewModel.media {
                 PauseScreenOverlay(
@@ -518,24 +485,250 @@ struct PlayerView: View {
                 .transition(.opacity)
             }
 
-            if nextEpisodePresentation.isPresented,
-               let services = viewModel.artworkServices
-            {
-                NextEpisodeOverlay(
-                    presentation: nextEpisodePresentation,
-                    services: services,
-                    onPlay: { nextViewModel in
-                        await startPlayback(using: nextViewModel)
-                    },
-                    onClose: { dismissPlayer(force: true) },
-                )
-            }
-
-            if sleepTimer.isPromptPresented {
-                SleepTimerPromptOverlay(sleepTimer: sleepTimer)
-            }
+            promptOverlays
         }
         .animation(Motion.animation(Motion.controls, reduceMotion: reduceMotion), value: pauseScreen.isPresented)
+    }
+
+    private var playerControls: some View {
+        let activeMarker = viewModel.activeSkipMarker
+        let skipTitle = activeMarker?.skipTitle
+
+        return PlayerControlsView(
+            media: viewModel.media,
+            isPaused: viewModel.isPaused,
+            isBuffering: viewModel.isBuffering,
+            videoResolution: viewModel.media?.playbackResolutionLabel,
+            videoFormatBadge: videoFormatBadge,
+            position: timelineBinding,
+            duration: viewModel.duration,
+            bufferedAhead: viewModel.bufferedAhead,
+            bufferBasePosition: viewModel.position,
+            playbackRate: playbackRate,
+            showsEndsAtTime: settingsManager.playback.showEndsAtTime,
+            isScrubbing: isScrubbing,
+            onDismiss: { dismissPlayer() },
+            onShowSettings: showSettings,
+            chapters: viewModel.chapters,
+            showsChaptersOnTimeline: settingsManager.playback.showChaptersOnTimeline,
+            scrubPreview: playerController.scrubPreview,
+            onSeekBackward: { jump(by: -seekBackwardInterval) },
+            onPlayPause: togglePlayPause,
+            onSeekForward: { jump(by: seekForwardInterval) },
+            seekBackwardSeconds: settingsManager.playback.seekBackwardSeconds,
+            seekForwardSeconds: settingsManager.playback.seekForwardSeconds,
+            onScrubbingChanged: handleScrubbing(editing:),
+            skipMarkerTitle: skipTitle,
+            onSkipMarker: activeMarker.map { marker in
+                { skipMarker(to: marker) }
+            },
+            isRotationLocked: isRotationLocked,
+            onToggleRotationLock: rotationLockAction,
+            isSharePlay: sharePlayCoordinator.isInSession,
+            showsPictureInPicture: playerController.showsPictureInPictureControl,
+            isPictureInPictureEnabled: playerController.isPictureInPictureAvailable
+                && !playerController.isPictureInPictureActive
+                && !playerController.isPictureInPictureTransitioning,
+            onStartPictureInPicture: playerController.startPictureInPicture,
+            hasInfoPanel: canShowInfoPanel,
+            onShowInfoPanel: showInfoPanel,
+            isLive: viewModel.isLivePlayback,
+            behindLiveSeconds: playerController.behindLiveSeconds,
+            onGoLive: playerController.seekToLiveEdge,
+            canSwitchPreviousChannel: viewModel.canSwitchToPreviousLiveChannel,
+            canSwitchNextChannel: viewModel.canSwitchToNextLiveChannel,
+            onPreviousChannel: { switchLiveChannel(by: -1) },
+            onNextChannel: { switchLiveChannel(by: 1) },
+            showsSettingsIndicator: playerController.subtitleDelayMilliseconds != 0,
+            sleepTimer: sleepTimer,
+        )
+    }
+
+    @ViewBuilder
+    private var seekFeedbackOverlay: some View {
+        if let pending = doubleTapSeek.pending {
+            SeekFeedbackView(feedback: doubleTapSeekFeedback(for: pending))
+                .padding(.horizontal, 32)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: pending.forward ? .trailing : .leading)
+                .transition(.opacity)
+                .allowsHitTesting(false)
+        }
+    }
+
+    @ViewBuilder
+    private func automaticSkipFeedbackOverlay(bottomPadding: CGFloat) -> some View {
+        if let automaticSkipFeedbackMessage {
+            AutomaticSkipFeedbackView(message: automaticSkipFeedbackMessage)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .padding(.bottom, bottomPadding)
+                .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                .allowsHitTesting(false)
+        }
+    }
+
+    @ViewBuilder
+    private var promptOverlays: some View {
+        if nextEpisodePresentation.isPresented,
+           let services = viewModel.artworkServices
+        {
+            NextEpisodeOverlay(
+                presentation: nextEpisodePresentation,
+                services: services,
+                onPlay: { nextViewModel in
+                    await startPlayback(using: nextViewModel)
+                },
+                onClose: { dismissPlayer(force: true) },
+            )
+        }
+
+        if sleepTimer.isPromptPresented {
+            SleepTimerPromptOverlay(sleepTimer: sleepTimer)
+        }
+    }
+
+    /// Over the upright half of a foldable: only feedback, since the controls sit below the fold.
+    private var tabletopVideoOverlay: some View {
+        ZStack {
+            Color.clear
+                .contentShape(Rectangle())
+                .onGeometryChange(for: Double.self) { $0.size.width } action: { tapAreaWidth = $0 }
+                .onTapGesture { location in
+                    if isTabletopLocked {
+                        showControls(temporarily: true)
+                    } else if !handleDoubleTapSeek(at: location) {
+                        toggleTabletopControls()
+                    }
+                }
+
+            if viewModel.isBuffering || isRecoveringServerAccess {
+                bufferingOverlay
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            }
+
+            seekFeedbackOverlay
+            automaticSkipFeedbackOverlay(bottomPadding: 32)
+        }
+    }
+
+    /// The half of a foldable lying flat: black until touched, then tiles, the info panel or the offset bar.
+    private var tabletopControls: some View {
+        ZStack {
+            if isShowingInfoPanel, let media = viewModel.media {
+                PlayerInfoPanelView(
+                    media: media,
+                    services: viewModel.artworkServices,
+                    queueItems: viewModel.queueItems,
+                    queueCurrentIndex: viewModel.queueCurrentIndex ?? 0,
+                    showsQueue: viewModel.hasNavigableQueue && viewModel.artworkServices != nil,
+                    chapters: viewModel.chapters,
+                    currentPosition: viewModel.position,
+                    selectedTab: $infoPanelTab,
+                    onSelectQueueItem: selectQueueItem(at:),
+                    onSelectChapter: selectChapter(_:),
+                    onClose: hideInfoPanel,
+                    isEmbedded: true,
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .background(Color.black)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else if let activeOffsetBar {
+                Color.black
+                PlayerOffsetBar(
+                    controller: playerController,
+                    kind: activeOffsetBar,
+                    burnsSubtitles: viewModel.burnsSubtitles,
+                    onDone: closeOffsetBar,
+                )
+                .padding(16)
+                .transition(.opacity)
+            } else {
+                tabletopTiles
+            }
+
+            promptOverlays
+        }
+    }
+
+    private var tabletopTiles: some View {
+        let activeMarker = viewModel.activeSkipMarker
+
+        return PlayerTabletopControlsView(
+            media: viewModel.media,
+            isVisible: controlsVisible,
+            isLocked: isTabletopLocked,
+            isPaused: viewModel.isPaused,
+            position: timelineBinding,
+            duration: viewModel.duration,
+            bufferedAhead: viewModel.bufferedAhead,
+            bufferBasePosition: viewModel.position,
+            playbackRate: playbackRate,
+            showsEndsAtTime: settingsManager.playback.showEndsAtTime,
+            chapters: viewModel.chapters,
+            showsChaptersOnTimeline: settingsManager.playback.showChaptersOnTimeline,
+            scrubPreview: playerController.scrubPreview,
+            seekBackwardSeconds: settingsManager.playback.seekBackwardSeconds,
+            seekForwardSeconds: settingsManager.playback.seekForwardSeconds,
+            skipMarkerTitle: activeMarker?.skipTitle,
+            isSharePlay: sharePlayCoordinator.isInSession,
+            sleepTimer: sleepTimer,
+            showsPictureInPicture: playerController.showsPictureInPictureControl,
+            isPictureInPictureEnabled: playerController.isPictureInPictureAvailable
+                && !playerController.isPictureInPictureActive
+                && !playerController.isPictureInPictureTransitioning,
+            showsSettingsIndicator: playerController.subtitleDelayMilliseconds != 0,
+            canShowInfo: canShowInfoPanel,
+            canPlayNext: nextQueueIndex != nil,
+            isLive: viewModel.isLivePlayback,
+            behindLiveSeconds: playerController.behindLiveSeconds,
+            canSwitchPreviousChannel: viewModel.canSwitchToPreviousLiveChannel,
+            canSwitchNextChannel: viewModel.canSwitchToNextLiveChannel,
+            actions: PlayerTabletopActions(
+                onTapBackground: toggleTabletopControls,
+                onInteraction: { showControls(temporarily: true) },
+                onDismiss: { dismissPlayer() },
+                onShowInfo: showInfoPanel,
+                onShowSettings: showSettings,
+                onStartPictureInPicture: playerController.startPictureInPicture,
+                onToggleLock: toggleTabletopLock,
+                onPlayNext: {
+                    if let nextQueueIndex {
+                        selectQueueItem(at: nextQueueIndex)
+                    }
+                },
+                onSeekBackward: { jump(by: -seekBackwardInterval) },
+                onPlayPause: togglePlayPause,
+                onSeekForward: { jump(by: seekForwardInterval) },
+                onScrubbingChanged: handleScrubbing(editing:),
+                onSkipMarker: {
+                    if let activeMarker {
+                        skipMarker(to: activeMarker)
+                    }
+                },
+                onGoLive: playerController.seekToLiveEdge,
+                onPreviousChannel: { switchLiveChannel(by: -1) },
+                onNextChannel: { switchLiveChannel(by: 1) },
+            ),
+        )
+        .animation(Motion.animation(Motion.controls, reduceMotion: reduceMotion), value: isTabletopLocked)
+    }
+
+    private var nextQueueIndex: Int? {
+        guard viewModel.hasNavigableQueue,
+              let currentIndex = viewModel.queueCurrentIndex,
+              viewModel.queueItems.indices.contains(currentIndex + 1)
+        else { return nil }
+        return currentIndex + 1
+    }
+
+    private func toggleTabletopControls() {
+        controlsVisible ? hideControls() : showControls(temporarily: true)
+    }
+
+    private func toggleTabletopLock() {
+        isTabletopLocked.toggle()
+        if isTabletopLocked {
+            hideControls()
+        }
     }
 
     private func offsetBar(_ kind: PlaybackOffsetKind) -> some View {
@@ -723,8 +916,10 @@ struct PlayerView: View {
         hideInfoPanel()
     }
 
+    /// The inner display of a foldable ignores the supported interface orientations, so locking only works while the
+    /// hinge is closed.
     private var rotationLockAction: (() -> Void)? {
-        guard isRotationLockAvailable else { return nil }
+        guard hinge == .closed || hinge == .unavailable else { return nil }
         return { toggleRotationLock() }
     }
 
@@ -1204,6 +1399,8 @@ struct PlayerView: View {
         guard activeOffsetBar == nil else { return }
 
         let workItem = DispatchWorkItem {
+            // Paused, the tiles stand in for the pause screen, which the tabletop layout does not show.
+            guard !layoutMode.isTabletop || isTabletopLocked || !playerController.isPaused else { return }
             withAnimation(Motion.animation(Motion.controls, reduceMotion: reduceMotion)) {
                 controlsVisible = false
             }
@@ -1522,20 +1719,5 @@ private enum PlayerSheet: String, Identifiable {
 
     var id: String {
         rawValue
-    }
-}
-
-private extension View {
-    /// The inner display of a foldable ignores the supported interface orientations, so locking only works while the
-    /// hinge is closed.
-    @ViewBuilder
-    func onRotationLockAvailabilityChange(_ action: @escaping (Bool) -> Void) -> some View {
-        if #available(iOS 27.1, *) {
-            onHingeChange { _, context in
-                action(context.hinge.map { $0.status == .closed } ?? true)
-            }
-        } else {
-            self
-        }
     }
 }

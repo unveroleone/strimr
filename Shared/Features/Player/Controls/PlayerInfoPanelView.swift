@@ -26,6 +26,8 @@ struct PlayerInfoPanelView: View {
     let onSelectQueueItem: (Int) -> Void
     let onSelectChapter: (MediaChapter) -> Void
     let onClose: () -> Void
+    /// Shown below the video on a foldable propped up like a laptop, on its own black half: no backdrop.
+    var isEmbedded = false
 
     @FocusState private var focusedTab: PlayerInfoTab?
     #if os(iOS)
@@ -51,21 +53,23 @@ struct PlayerInfoPanelView: View {
 
             content
         }
-        .padding(.top, Metrics.topPadding)
+        .padding(.top, isEmbedded ? Metrics.embeddedTopPadding : Metrics.topPadding)
         .padding(.bottom, Metrics.bottomPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            LinearGradient(
-                stops: [
-                    .init(color: .clear, location: 0),
-                    .init(color: .black.opacity(0.75), location: 0.25),
-                    .init(color: .black.opacity(0.9), location: 1),
-                ],
-                startPoint: .top,
-                endPoint: .bottom,
-            )
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
+            if !isEmbedded {
+                LinearGradient(
+                    stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .black.opacity(0.75), location: 0.25),
+                        .init(color: .black.opacity(0.9), location: 1),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom,
+                )
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+            }
         }
         .environment(\.colorScheme, .dark)
         #if os(tvOS)
@@ -250,11 +254,13 @@ private enum Metrics {
     #if os(tvOS)
         static let horizontalPadding: CGFloat = 80
         static let topPadding: CGFloat = 48
+        static let embeddedTopPadding: CGFloat = 8
         static let bottomPadding: CGFloat = 56
         static let sectionSpacing: CGFloat = 24
     #else
         static let horizontalPadding: CGFloat = 24
         static let topPadding: CGFloat = 28
+        static let embeddedTopPadding: CGFloat = 8
         static let bottomPadding: CGFloat = 12
         static let sectionSpacing: CGFloat = 14
     #endif
