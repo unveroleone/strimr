@@ -57,6 +57,7 @@ import SwiftUI
     private struct PlayerButtonAppearance: ViewModifier {
         let diameter: CGFloat
         var isProminent = false
+        var isProminentOnOlderIOS = false
 
         func body(content: Content) -> some View {
             #if os(iOS)
@@ -76,7 +77,10 @@ import SwiftUI
                     .buttonSizing(.flexible)
                     .frame(width: diameter, height: diameter)
                 } else {
-                    content.buttonStyle(.playerControl(diameter: diameter, isFilled: isProminent))
+                    content.buttonStyle(.playerControl(
+                        diameter: diameter,
+                        isFilled: isProminent || isProminentOnOlderIOS,
+                    ))
                 }
             #else
                 content.buttonStyle(.playerControl(diameter: diameter, isFilled: isProminent))
@@ -144,7 +148,7 @@ import SwiftUI
                     .font(font)
             }
             #if os(iOS)
-            .modifier(PlayerButtonAppearance(diameter: diameter))
+            .modifier(PlayerButtonAppearance(diameter: diameter, isProminentOnOlderIOS: true))
             #else
             .modifier(PlayerButtonAppearance(diameter: diameter, isProminent: true))
             #endif
