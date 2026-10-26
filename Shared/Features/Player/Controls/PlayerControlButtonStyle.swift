@@ -1,8 +1,8 @@
 import SwiftUI
 
 #if !os(tvOS)
-    /// Round glass button of the player controls. Filled white for the play button, like the primary action button, and
-    /// for a toggle that is on, like a selected chip.
+    /// Custom round player button for macOS and older iOS versions.
+    /// Filled white for prominent actions and selected toggles.
     struct PlayerControlButtonStyle: ButtonStyle {
         var diameter: CGFloat
         var isFilled = false
@@ -54,6 +54,36 @@ import SwiftUI
         }
     }
 
+    private struct PlayerButtonAppearance: ViewModifier {
+        let diameter: CGFloat
+        var isProminent = false
+
+        func body(content: Content) -> some View {
+            #if os(iOS)
+                if #available(iOS 26.0, *) {
+                    Group {
+                        if isProminent {
+                            content
+                                .foregroundStyle(.black)
+                                .buttonStyle(.glassProminent)
+                        } else {
+                            content.buttonStyle(.glass)
+                        }
+                    }
+                    .buttonBorderShape(.circle)
+                    .controlSize(.large)
+                    .tint(.white)
+                    .buttonSizing(.flexible)
+                    .frame(width: diameter, height: diameter)
+                } else {
+                    content.buttonStyle(.playerControl(diameter: diameter, isFilled: isProminent))
+                }
+            #else
+                content.buttonStyle(.playerControl(diameter: diameter, isFilled: isProminent))
+            #endif
+        }
+    }
+
     struct PlayerIconButton: View {
         enum Size {
             /// Header and corner buttons, such as settings or rotation lock.
@@ -99,7 +129,7 @@ import SwiftUI
                 Image(systemName: systemName)
                     .font(size.font)
             }
-            .buttonStyle(.playerControl(diameter: size.diameter, isFilled: isSelected))
+            .modifier(PlayerButtonAppearance(diameter: size.diameter, isProminent: isSelected))
             .accessibilityLabel(accessibilityLabel ?? systemName)
         }
     }
@@ -113,7 +143,11 @@ import SwiftUI
                 Image(systemName: isPaused ? "play.fill" : "pause.fill")
                     .font(font)
             }
-            .buttonStyle(.playerControl(diameter: diameter, isFilled: true))
+            #if os(iOS)
+            .modifier(PlayerButtonAppearance(diameter: diameter))
+            #else
+            .modifier(PlayerButtonAppearance(diameter: diameter, isProminent: true))
+            #endif
             .accessibilityLabel(isPaused
                 ? String(localized: "common.actions.play")
                 : String(localized: "common.actions.pause"))
