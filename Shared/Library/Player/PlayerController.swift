@@ -76,10 +76,6 @@ final class PlayerController {
         )
     }
 
-    var assReloadSignal: PassthroughSubject<Void, Never> {
-        assCoordinator.reloadSignal
-    }
-
     @ObservationIgnored var onMediaLoaded: (() -> Void)?
     @ObservationIgnored var onPlaybackEnded: (() -> Void)?
 
@@ -590,11 +586,11 @@ final class PlayerController {
                 .first()
                 .sink { [weak self] header in
                     guard let self else { return }
-                    assCoordinator.activate(header: header, mediaIdentifier: mediaIdentifier)
+                    assCoordinator.activate(header: header)
                     assRenderer = assCoordinator.renderer
                 }
         } else {
-            assCoordinator.activate(header: track?.assHeader, mediaIdentifier: mediaIdentifier)
+            assCoordinator.activate(header: track?.assHeader)
             assRenderer = assCoordinator.renderer
         }
     }
