@@ -1224,7 +1224,7 @@ struct PlayerView: View {
                             .foregroundStyle(.textSecondary)
                     }
                 }
-                if let secondary = media.tertiaryLabel ?? media.secondaryLabel {
+                if let secondary = media.episodeTitleLabel ?? media.secondaryLabel {
                     Text(secondary).font(.facts).foregroundStyle(.textSecondary)
                 }
             }
