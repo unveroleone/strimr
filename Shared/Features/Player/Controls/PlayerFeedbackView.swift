@@ -2,7 +2,7 @@ import SwiftUI
 
 struct PlayerFeedbackView: View {
     let message: String
-    var systemImage: String? = "forward.fill"
+    var systemImage: String?
 
     var body: some View {
         HStack(spacing: 8) {

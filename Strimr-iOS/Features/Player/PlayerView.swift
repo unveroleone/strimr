@@ -42,7 +42,7 @@ struct PlayerView: View {
     @State private var showingSubtitleSearchError = false
     @State private var isRotationLocked = false
     @State private var lastPinchInteraction: ContinuousClock.Instant?
-    @State private var didApplySavedVideoScaleMode = false
+    @State private var isLandscape = false
     @GestureState private var isPinching = false
     @State private var layoutMode = PlayerLayoutMode.fullScreen
     @State private var hinge = PlayerHingeState.unavailable
@@ -102,6 +102,10 @@ struct PlayerView: View {
                 tabletopControls
             }
             .statusBarHidden()
+            .onGeometryChange(for: Bool.self) { $0.size.width > $0.size.height } action: { isLandscape in
+                self.isLandscape = isLandscape
+                applyVideoScaleMode()
+            }
             .overlay {
                 if !layoutMode.isTabletop {
                     playerOverlay
@@ -124,9 +128,7 @@ struct PlayerView: View {
                         guard scenePhase == .background else { return }
                         preparePlaybackForBackground()
                     }
-                    didApplySavedVideoScaleMode = false
-                    playerController.setVideoScaleMode(.fit)
-                    applySavedVideoScaleModeIfReady()
+                    applyVideoScaleMode()
                     configureSleepTimer()
                     showControls(temporarily: true)
                     playerController.setPlaybackRate(playbackRate)
@@ -183,9 +185,6 @@ struct PlayerView: View {
                         duration: playerController.duration ?? viewModel.duration,
                         chapters: viewModel.chapters,
                     )
-                }
-                .onChange(of: playerController.isPresentationOrientationReady) { _, _ in
-                    applySavedVideoScaleModeIfReady()
                 }
                 .onChange(of: playerController.duration) { _, newValue in
                     viewModel.handlePlaybackDuration(newValue)
@@ -957,18 +956,15 @@ struct PlayerView: View {
         return ContinuousClock.now - lastPinchInteraction < .milliseconds(250)
     }
 
-    private func applySavedVideoScaleModeIfReady() {
-        guard !didApplySavedVideoScaleMode, playerController.isPresentationOrientationReady else { return }
-        didApplySavedVideoScaleMode = true
-        playerController.setVideoScaleMode(settingsManager.playback.videoScaleMode)
+    private func applyVideoScaleMode() {
+        playerController.setVideoScaleMode(isLandscape ? settingsManager.playback.videoScaleMode : .fit)
     }
 
     private func selectVideoScaleMode(_ mode: PlayerVideoScaleMode) {
-        // An explicit gesture takes precedence over the deferred startup preference.
-        didApplySavedVideoScaleMode = true
-        guard playerController.videoScaleMode != mode || settingsManager.playback.videoScaleMode != mode else { return }
-        playerController.setVideoScaleMode(mode)
+        guard isLandscape,
+              playerController.videoScaleMode != mode || settingsManager.playback.videoScaleMode != mode else { return }
         settingsManager.setVideoScaleMode(mode)
+        applyVideoScaleMode()
         showFeedbackMessage(mode.feedbackTitle, systemImage: mode.feedbackSystemImage)
     }
 

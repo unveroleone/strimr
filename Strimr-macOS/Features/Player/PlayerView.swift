@@ -64,6 +64,7 @@ struct PlayerView: View {
     @State private var hideControlsWorkItem: DispatchWorkItem?
     @State private var feedbackWorkItem: DispatchWorkItem?
     @State private var feedbackMessage: String?
+    @State private var feedbackSystemImage: String?
     @State private var seekFeedback: SeekFeedback?
     @State private var seekFeedbackWorkItem: DispatchWorkItem?
     @State private var isPointerInsidePlayer = false
@@ -184,7 +185,7 @@ struct PlayerView: View {
             }
 
             if let feedbackMessage {
-                PlayerFeedbackView(message: feedbackMessage)
+                PlayerFeedbackView(message: feedbackMessage, systemImage: feedbackSystemImage)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .padding(.bottom, controlsVisible ? 110 : 32)
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
@@ -1462,14 +1463,19 @@ struct PlayerView: View {
     }
 
     private func showAutomaticSkipFeedback(for marker: SkipSegment) {
-        showFeedbackMessage(marker.automaticSkipConfirmation)
+        showFeedbackMessage(marker.automaticSkipConfirmation, systemImage: "forward.fill")
     }
 
-    private func showFeedbackMessage(_ message: String, duration: TimeInterval = 2.5) {
+    private func showFeedbackMessage(
+        _ message: String,
+        duration: TimeInterval = 2.5,
+        systemImage: String? = nil,
+    ) {
         feedbackWorkItem?.cancel()
 
         withAnimation(Motion.animation(Motion.crossfade, reduceMotion: reduceMotion)) {
             feedbackMessage = message
+            feedbackSystemImage = systemImage
         }
 
         let workItem = DispatchWorkItem {
