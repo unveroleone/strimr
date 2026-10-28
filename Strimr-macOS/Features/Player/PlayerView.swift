@@ -62,8 +62,9 @@ struct PlayerView: View {
     @State private var fullscreenCoordinator = PlayerFullscreenCoordinator()
     @State private var controlsVisible = true
     @State private var hideControlsWorkItem: DispatchWorkItem?
-    @State private var automaticSkipFeedbackWorkItem: DispatchWorkItem?
-    @State private var automaticSkipFeedbackMessage: String?
+    @State private var feedbackWorkItem: DispatchWorkItem?
+    @State private var feedbackMessage: String?
+    @State private var feedbackSystemImage: String?
     @State private var seekFeedback: SeekFeedback?
     @State private var seekFeedbackWorkItem: DispatchWorkItem?
     @State private var isPointerInsidePlayer = false
@@ -183,8 +184,8 @@ struct PlayerView: View {
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }
 
-            if let automaticSkipFeedbackMessage {
-                AutomaticSkipFeedbackView(message: automaticSkipFeedbackMessage)
+            if let feedbackMessage {
+                PlayerFeedbackView(message: feedbackMessage, systemImage: feedbackSystemImage)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .padding(.bottom, controlsVisible ? 110 : 32)
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
@@ -268,7 +269,7 @@ struct PlayerView: View {
                     sleepTimer.cancel()
                     pauseScreen.cancel()
                     hideControlsWorkItem?.cancel()
-                    automaticSkipFeedbackWorkItem?.cancel()
+                    feedbackWorkItem?.cancel()
                     seekFeedbackWorkItem?.cancel()
                     fullscreenCoordinator.detach()
                     restoreCursor()
@@ -1462,22 +1463,27 @@ struct PlayerView: View {
     }
 
     private func showAutomaticSkipFeedback(for marker: SkipSegment) {
-        showFeedbackMessage(marker.automaticSkipConfirmation)
+        showFeedbackMessage(marker.automaticSkipConfirmation, systemImage: "forward.fill")
     }
 
-    private func showFeedbackMessage(_ message: String, duration: TimeInterval = 2.5) {
-        automaticSkipFeedbackWorkItem?.cancel()
+    private func showFeedbackMessage(
+        _ message: String,
+        duration: TimeInterval = 2.5,
+        systemImage: String? = nil,
+    ) {
+        feedbackWorkItem?.cancel()
 
         withAnimation(Motion.animation(Motion.crossfade, reduceMotion: reduceMotion)) {
-            automaticSkipFeedbackMessage = message
+            feedbackMessage = message
+            feedbackSystemImage = systemImage
         }
 
         let workItem = DispatchWorkItem {
             withAnimation(Motion.animation(Motion.crossfade, reduceMotion: reduceMotion)) {
-                automaticSkipFeedbackMessage = nil
+                feedbackMessage = nil
             }
         }
-        automaticSkipFeedbackWorkItem = workItem
+        feedbackWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: workItem)
     }
 

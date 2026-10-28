@@ -13,8 +13,9 @@ struct PlayerView: View {
     @State private var playerController = PlayerController()
     @State private var controlsVisible = true
     @State private var hideControlsWorkItem: DispatchWorkItem?
-    @State private var automaticSkipFeedbackWorkItem: DispatchWorkItem?
-    @State private var automaticSkipFeedbackMessage: String?
+    @State private var feedbackWorkItem: DispatchWorkItem?
+    @State private var feedbackMessage: String?
+    @State private var feedbackSystemImage: String?
     @State private var isScrubbing = false
     @State private var videoFormatBadge: PlayerVideoFormatBadge?
     @State private var sheetPresentation = IsolatedSheetPresentation<PlayerSheet>()
@@ -40,6 +41,9 @@ struct PlayerView: View {
     @State private var subtitleSearchErrorMessage = ""
     @State private var showingSubtitleSearchError = false
     @State private var isRotationLocked = false
+    @State private var lastPinchInteraction: ContinuousClock.Instant?
+    @State private var isLandscape = false
+    @GestureState private var isPinching = false
     @State private var layoutMode = PlayerLayoutMode.fullScreen
     @State private var hinge = PlayerHingeState.unavailable
     @State private var isTabletopLocked = false
@@ -98,6 +102,10 @@ struct PlayerView: View {
                 tabletopControls
             }
             .statusBarHidden()
+            .onGeometryChange(for: Bool.self) { $0.size.width > $0.size.height } action: { isLandscape in
+                self.isLandscape = isLandscape
+                applyVideoScaleMode()
+            }
             .overlay {
                 if !layoutMode.isTabletop {
                     playerOverlay
@@ -120,6 +128,7 @@ struct PlayerView: View {
                         guard scenePhase == .background else { return }
                         preparePlaybackForBackground()
                     }
+                    applyVideoScaleMode()
                     configureSleepTimer()
                     showControls(temporarily: true)
                     playerController.setPlaybackRate(playbackRate)
@@ -138,7 +147,7 @@ struct PlayerView: View {
                     viewModel.handleStop()
                     playerController.onPictureInPictureStartFailed = nil
                     hideControlsWorkItem?.cancel()
-                    automaticSkipFeedbackWorkItem?.cancel()
+                    feedbackWorkItem?.cancel()
                     doubleTapSeek.cancel()
                     playerController.stop()
                     AppDelegate.orientationLock = .all
@@ -406,9 +415,10 @@ struct PlayerView: View {
                 maxCueDuration: playerController.subtitleMaxCueDuration,
                 appearance: settingsManager.playback.subtitleAppearance,
                 bottomPadding: controlsVisible && !layoutMode.isTabletop ? 120 : 48,
-                videoSize: playerController.sourceVideoSize,
+                videoSize: playerController.displayVideoSize ?? playerController.sourceVideoSize,
                 assRenderer: playerController.assRenderer,
                 activeSubtitleCodec: playerController.activeSubtitleCodec,
+                videoScaleMode: playerController.videoScaleMode,
             )
             .ignoresSafeArea()
             .opacity(pauseScreen.isPresented ? 0 : 1)
@@ -425,6 +435,7 @@ struct PlayerView: View {
                 .ignoresSafeArea()
                 .onGeometryChange(for: Double.self) { $0.size.width } action: { tapAreaWidth = $0 }
                 .onTapGesture { location in
+                    guard !isPinchInteractionRecent else { return }
                     pauseScreen.registerInteraction()
                     if isShowingInfoPanel {
                         hideInfoPanel()
@@ -434,12 +445,34 @@ struct PlayerView: View {
                 }
                 .gesture(
                     DragGesture(minimumDistance: 24).onEnded { value in
+                        guard !isPinchInteractionRecent else { return }
                         let translation = value.translation
                         if translation.height < -60, abs(translation.height) > abs(translation.width) {
                             showInfoPanel()
                         }
                     },
                 )
+                .simultaneousGesture(
+                    MagnifyGesture(minimumScaleDelta: 0.03)
+                        .updating($isPinching) { _, isPinching, _ in
+                            isPinching = true
+                        }
+                        .onEnded { value in
+                            lastPinchInteraction = .now
+                            if value.magnification > 1.12 {
+                                selectVideoScaleMode(.fill)
+                            } else if value.magnification < 0.88 {
+                                selectVideoScaleMode(.fit)
+                            }
+                        },
+                )
+                .onChange(of: isPinching) { _, isPinching in
+                    lastPinchInteraction = .now
+                    if isPinching {
+                        doubleTapSeek.cancel()
+                        pauseScreen.registerInteraction()
+                    }
+                }
 
             if viewModel.isBuffering || isRecoveringServerAccess {
                 bufferingOverlay
@@ -462,7 +495,7 @@ struct PlayerView: View {
 
             seekFeedbackOverlay
 
-            automaticSkipFeedbackOverlay(bottomPadding: controlsVisible ? 150 : 32)
+            playerFeedbackOverlay(bottomPadding: controlsVisible ? 150 : 32)
 
             if pauseScreen.isPresented, let media = viewModel.media {
                 PauseScreenOverlay(
@@ -555,9 +588,9 @@ struct PlayerView: View {
     }
 
     @ViewBuilder
-    private func automaticSkipFeedbackOverlay(bottomPadding: CGFloat) -> some View {
-        if let automaticSkipFeedbackMessage {
-            AutomaticSkipFeedbackView(message: automaticSkipFeedbackMessage)
+    private func playerFeedbackOverlay(bottomPadding: CGFloat) -> some View {
+        if let feedbackMessage {
+            PlayerFeedbackView(message: feedbackMessage, systemImage: feedbackSystemImage)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                 .padding(.bottom, bottomPadding)
                 .transition(.opacity.combined(with: .scale(scale: 0.96)))
@@ -605,7 +638,7 @@ struct PlayerView: View {
             }
 
             seekFeedbackOverlay
-            automaticSkipFeedbackOverlay(bottomPadding: 32)
+            playerFeedbackOverlay(bottomPadding: 32)
         }
     }
 
@@ -913,6 +946,26 @@ struct PlayerView: View {
         viewModel.position = chapter.startTime
         timelinePosition = chapter.startTime
         hideInfoPanel()
+    }
+
+    private var isPinchInteractionRecent: Bool {
+        if isPinching {
+            return true
+        }
+        guard let lastPinchInteraction else { return false }
+        return ContinuousClock.now - lastPinchInteraction < .milliseconds(250)
+    }
+
+    private func applyVideoScaleMode() {
+        playerController.setVideoScaleMode(isLandscape ? settingsManager.playback.videoScaleMode : .fit)
+    }
+
+    private func selectVideoScaleMode(_ mode: PlayerVideoScaleMode) {
+        guard isLandscape,
+              playerController.videoScaleMode != mode || settingsManager.playback.videoScaleMode != mode else { return }
+        settingsManager.setVideoScaleMode(mode)
+        applyVideoScaleMode()
+        showFeedbackMessage(mode.feedbackTitle, systemImage: mode.feedbackSystemImage)
     }
 
     /// The inner display of a foldable ignores the supported interface orientations, so locking only works while the
@@ -1461,22 +1514,27 @@ struct PlayerView: View {
     }
 
     private func showAutomaticSkipFeedback(for marker: SkipSegment) {
-        showFeedbackMessage(marker.automaticSkipConfirmation)
+        showFeedbackMessage(marker.automaticSkipConfirmation, systemImage: "forward.fill")
     }
 
-    private func showFeedbackMessage(_ message: String, duration: TimeInterval = 2.5) {
-        automaticSkipFeedbackWorkItem?.cancel()
+    private func showFeedbackMessage(
+        _ message: String,
+        duration: TimeInterval = 2.5,
+        systemImage: String? = nil,
+    ) {
+        feedbackWorkItem?.cancel()
 
         withAnimation(Motion.animation(Motion.crossfade, reduceMotion: reduceMotion)) {
-            automaticSkipFeedbackMessage = message
+            feedbackMessage = message
+            feedbackSystemImage = systemImage
         }
 
         let workItem = DispatchWorkItem {
             withAnimation(Motion.animation(Motion.crossfade, reduceMotion: reduceMotion)) {
-                automaticSkipFeedbackMessage = nil
+                feedbackMessage = nil
             }
         }
-        automaticSkipFeedbackWorkItem = workItem
+        feedbackWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: workItem)
     }
 
