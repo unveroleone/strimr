@@ -18395,6 +18395,40 @@
         }
       }
     },
+    "settings.playback.autoRotateVideo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto-rotate videos"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rotation automatique des vidéos"
+          }
+        }
+      }
+    },
+    "settings.playback.autoRotateVideo.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open landscape videos in landscape on iPhone. You can still rotate freely or lock the player’s orientation."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir les vidéos au format paysage en mode paysage sur iPhone. Vous pouvez ensuite tourner librement l’appareil ou verrouiller l’orientation du lecteur."
+          }
+        }
+      }
+    },
     "settings.playback.autoSkipCommercials" : {
       "localizations" : {
         "en" : {
