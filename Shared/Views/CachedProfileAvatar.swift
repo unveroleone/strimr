@@ -58,9 +58,12 @@ final class ProfileAvatarCache {
                 try Task.checkCancellation()
                 guard requestedURLs[profileID] == url else { return images[profileID] }
                 guard let response = response as? HTTPURLResponse, response.statusCode == 200,
-                      data.count <= 5 * 1024 * 1024,
-                      let thumbnail = Self.thumbnail(data), let image = Self.decode(thumbnail)
+                      data.count <= 5 * 1024 * 1024
                 else { return cached }
+                let thumbnail = await Task.detached(priority: .utility) { Self.thumbnail(data) }.value
+                try Task.checkCancellation()
+                guard requestedURLs[profileID] == url else { return images[profileID] }
+                guard let thumbnail, let image = Self.decode(thumbnail) else { return cached }
                 let record = Record(source: url, updatedAt: Date(), data: thumbnail)
                 records[profileID] = record
                 images[profileID] = image
@@ -95,7 +98,7 @@ final class ProfileAvatarCache {
         return directory.appendingPathComponent(key).appendingPathExtension("plist")
     }
 
-    private static func thumbnail(_ data: Data) -> Data? {
+    private nonisolated static func thumbnail(_ data: Data) -> Data? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
                   kCGImageSourceCreateThumbnailFromImageAlways: true,
