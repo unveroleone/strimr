@@ -41,6 +41,7 @@ struct PlayerView: View {
     @State private var subtitleSearchErrorMessage = ""
     @State private var showingSubtitleSearchError = false
     @State private var isRotationLocked = false
+    @State private var didConsiderAutomaticRotation = false
     @State private var lastPinchInteraction: ContinuousClock.Instant?
     @State private var isLandscape = false
     @GestureState private var isPinching = false
@@ -128,7 +129,9 @@ struct PlayerView: View {
                         guard scenePhase == .background else { return }
                         preparePlaybackForBackground()
                     }
+                    didConsiderAutomaticRotation = false
                     applyVideoScaleMode()
+                    rotateAutomaticallyIfNeeded()
                     configureSleepTimer()
                     showControls(temporarily: true)
                     playerController.setPlaybackRate(playbackRate)
@@ -222,6 +225,13 @@ struct PlayerView: View {
                 }
                 .onChange(of: scenePhase) { _, newValue in
                     handleScenePhaseChange(newValue)
+                    rotateAutomaticallyIfNeeded()
+                }
+                .onChange(of: playerController.displayVideoSize) { _, _ in
+                    rotateAutomaticallyIfNeeded()
+                }
+                .onChange(of: playerController.isPictureInPictureActive) { _, _ in
+                    rotateAutomaticallyIfNeeded()
                 }
                 .onChange(of: isStreamingServerUnreachable) { _, isUnreachable in
                     guard isUnreachable else { return }
@@ -975,7 +985,28 @@ struct PlayerView: View {
         return { toggleRotationLock() }
     }
 
+    private func rotateAutomaticallyIfNeeded() {
+        guard !didConsiderAutomaticRotation, UIDevice.current.userInterfaceIdiom == .phone,
+              scenePhase == .active, !playerController.isPictureInPictureActive,
+              let size = playerController.displayVideoSize, size.width > 0, size.height > 0,
+              let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene })
+                  .first(where: { $0.activationState == .foregroundActive && $0.windows.contains(where: \.isKeyWindow)
+                  })
+        else { return }
+
+        didConsiderAutomaticRotation = true
+        guard settingsManager.playback.autoRotateVideo, !isRotationLocked,
+              AppDelegate.orientationLock == .all,
+              size.width > size.height, scene.effectiveGeometry.interfaceOrientation.isPortrait
+        else { return }
+
+        scene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscape)) { error in
+            Task { @MainActor in ErrorReporter.capture(error) }
+        }
+    }
+
     private func toggleRotationLock() {
+        didConsiderAutomaticRotation = true
         if isRotationLocked {
             AppDelegate.orientationLock = .all
             isRotationLocked = false
