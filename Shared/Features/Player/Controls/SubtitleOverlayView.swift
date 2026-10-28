@@ -216,7 +216,7 @@ struct SubtitleOverlayView: View {
         )
     }
 
-    /// Apply the video's fit-to-fill transform to the existing subtitle layout, including oversized canvases.
+    /// Apply the video's fit-to-fill transform to the existing subtitle layout.
     private func zoomedRect(_ rect: CGRect, in overlaySize: CGSize) -> CGRect {
         guard videoScaleMode == .fill, let videoSize,
               videoSize.width > 0, videoSize.height > 0,
@@ -238,9 +238,19 @@ struct SubtitleOverlayView: View {
         let canvasSize = image.canvasSize.width > 0 && image.canvasSize.height > 0
             ? image.canvasSize
             : videoSize
-        // Fit the whole canvas on screen rather than width-aligning it to the video: a 16:9 canvas
-        // over a cropped (e.g. 2.39:1) video would otherwise push lower-bar cues off a wide screen.
-        let canvasRect = zoomedRect(aspectFitRect(for: canvasSize, in: overlaySize), in: overlaySize)
+        // Keep differently shaped canvases fitted so lower-bar cues stay visible.
+        var canvasRect = aspectFitRect(for: canvasSize, in: overlaySize)
+        if let canvasSize, let videoSize,
+           canvasSize.width > 0, canvasSize.height > 0,
+           videoSize.width > 0, videoSize.height > 0
+        {
+            let canvasAspectRatio = canvasSize.width / canvasSize.height
+            let videoAspectRatio = videoSize.width / videoSize.height
+            // Allow small differences from rounded video dimensions.
+            if abs(canvasAspectRatio / videoAspectRatio - 1) < 0.01 {
+                canvasRect = zoomedRect(canvasRect, in: overlaySize)
+            }
+        }
 
         return CGRect(
             x: canvasRect.minX + image.position.minX * canvasRect.width,
