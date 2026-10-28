@@ -23,7 +23,13 @@ final class ProfileAvatarCache {
     private var loaded: Set<String> = []
     private var requests: [String: Task<Image?, Never>] = [:]
     private var requestedURLs: [String: URL] = [:]
-    private let directory = URL.cachesDirectory.appendingPathComponent("ProfileAvatars", isDirectory: true)
+    private let directory = URL.cachesDirectory.appendingPathComponent("ProfileAvatars-v2", isDirectory: true)
+
+    private init() {
+        // Older chooser entries used raw user UUIDs that profile deletion could not identify.
+        let legacyDirectory = URL.cachesDirectory.appendingPathComponent("ProfileAvatars", isDirectory: true)
+        try? FileManager.default.removeItem(at: legacyDirectory)
+    }
 
     func image(for profileID: String) -> Image? {
         if loaded.insert(profileID).inserted,

@@ -108,7 +108,7 @@ struct ProfileAvatarView: View {
         if choice.isLocal {
             ProfileInitialsAvatar(initials: choice.initials, tint: choice.tint)
         } else {
-            CachedProfileAvatar(profileID: choice.id, url: choice.avatarURL) {
+            CachedProfileAvatar(profileID: choice.avatarProfileID, url: choice.avatarURL) {
                 placeholder
             }
         }
