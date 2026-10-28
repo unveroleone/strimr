@@ -12,8 +12,8 @@ struct PlayerView: View {
     @State private var playerController = PlayerController()
     @State private var controlsVisible = true
     @State private var hideControlsWorkItem: DispatchWorkItem?
-    @State private var automaticSkipFeedbackWorkItem: DispatchWorkItem?
-    @State private var automaticSkipFeedbackMessage: String?
+    @State private var feedbackWorkItem: DispatchWorkItem?
+    @State private var feedbackMessage: String?
     @State private var isScrubbing = false
     @State private var videoFormatBadge: PlayerVideoFormatBadge?
     @State private var audioTracks: [PlayerTrack] = []
@@ -124,7 +124,7 @@ struct PlayerView: View {
                     pauseScreen.cancel()
                     viewModel.handleStop()
                     hideControlsWorkItem?.cancel()
-                    automaticSkipFeedbackWorkItem?.cancel()
+                    feedbackWorkItem?.cancel()
                     seekFeedbackWorkItem?.cancel()
                     playerController.stop()
                     if sharePlayCoordinator.isInSession {
@@ -475,8 +475,8 @@ struct PlayerView: View {
                 seekFeedbackOverlay(seekFeedback)
             }
 
-            if let automaticSkipFeedbackMessage {
-                AutomaticSkipFeedbackView(message: automaticSkipFeedbackMessage)
+            if let feedbackMessage {
+                PlayerFeedbackView(message: feedbackMessage)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .padding(.bottom, controlsVisible ? 330 : 48)
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
@@ -1358,18 +1358,18 @@ struct PlayerView: View {
     }
 
     private func showFeedbackMessage(_ message: String, duration: TimeInterval = 2.5) {
-        automaticSkipFeedbackWorkItem?.cancel()
+        feedbackWorkItem?.cancel()
 
         withAnimation(Motion.animation(Motion.crossfade, reduceMotion: reduceMotion)) {
-            automaticSkipFeedbackMessage = message
+            feedbackMessage = message
         }
 
         let workItem = DispatchWorkItem {
             withAnimation(Motion.animation(Motion.crossfade, reduceMotion: reduceMotion)) {
-                automaticSkipFeedbackMessage = nil
+                feedbackMessage = nil
             }
         }
-        automaticSkipFeedbackWorkItem = workItem
+        feedbackWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: workItem)
     }
 
