@@ -439,6 +439,29 @@ final class JellyfinMediaServiceAdapter: MediaHomeService, MediaLibraryService, 
         return .data(data)
     }
 
+    func themeMusicURL(path: String) -> URL? {
+        guard let access = try? context.externalMediaAccess() else { return nil }
+        return try? JellyfinAPIContext.makeURL(
+            baseURL: access.baseURL,
+            path: ["Audio", path, "stream"],
+            query: [
+                URLQueryItem(name: "static", value: "true"),
+                URLQueryItem(name: "api_key", value: access.token),
+            ],
+        )
+    }
+
+    func themePath(for media: MediaItem) async -> String? {
+        do {
+            return try await catalog.themeSongs(itemID: media.id).first?.id
+        } catch {
+            if !Task.isCancelled, !error.isCancellation {
+                ErrorReporter.capture(error)
+            }
+            return nil
+        }
+    }
+
     func details(for media: MediaItem) async throws -> MediaDetailContent {
         let item = try await catalog.item(id: media.id)
         let mapped = MediaItem(jellyfinItem: item, server: server)

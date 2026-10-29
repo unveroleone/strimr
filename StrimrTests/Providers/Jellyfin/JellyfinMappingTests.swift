@@ -133,6 +133,12 @@ struct JellyfinMappingTests {
         #expect(parsed.tag == "chapter-tag")
     }
 
+    @Test func `decodes theme songs`() throws {
+        let themes = try Fixtures.decode(JellyfinQueryResult<JellyfinItem>.self, from: "jellyfin-theme-songs")
+
+        #expect(themes.items.map(\.id) == ["theme-1"])
+    }
+
     @Test func `artwork path requires tag`() {
         #expect(JellyfinArtworkPath.make(ownerID: "movie-1", type: "Primary", tag: nil) == nil)
         #expect(JellyfinArtworkPath.parse("https://example.com/image") == nil)
