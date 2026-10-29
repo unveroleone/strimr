@@ -286,7 +286,7 @@ final class PlayerViewModel {
             id: Int(track.id) ?? track.sourceIndex,
             sourceIndex: track.sourceIndex,
             codec: track.codec ?? "",
-            title: nil,
+            title: track.name,
             displayTitle: track.title,
             language: track.language,
             isDefault: track.isDefault,
@@ -328,21 +328,34 @@ final class PlayerViewModel {
 
     func sourcePlayerTracks() -> [PlayerTrack] {
         guard let playbackPlan else { return [] }
-        return playbackPlan.tracks.map { track in
-            let providerStreamID = providerStreamID(for: track)
+        return Self.sourcePlayerTracks(
+            playbackPlan.tracks,
+            selectedAudioIndex: playbackPlan.selectedAudioIndex,
+            selectedSubtitleIndex: playbackPlan.selectedSubtitleIndex,
+        )
+    }
+
+    static func sourcePlayerTracks(
+        _ tracks: [PlaybackTrack],
+        selectedAudioIndex: Int?,
+        selectedSubtitleIndex: Int?,
+    ) -> [PlayerTrack] {
+        tracks.map { track in
+            let providerStreamID = Int(track.id) ?? track.sourceIndex
             let isSelected = switch track.kind {
             case .audio:
-                playbackPlan.selectedAudioIndex == track.sourceIndex
+                selectedAudioIndex == track.sourceIndex
             case .subtitle:
-                playbackPlan.selectedSubtitleIndex == providerStreamID
-                    || playbackPlan.selectedSubtitleIndex == track.sourceIndex
+                selectedSubtitleIndex == providerStreamID
+                    || selectedSubtitleIndex == track.sourceIndex
             }
             return PlayerTrack(
                 id: track.sourceIndex,
                 ffIndex: track.sourceIndex,
                 providerStreamID: providerStreamID,
                 type: track.kind == .audio ? .audio : .subtitle,
-                title: track.title,
+                // Like the engine's tracks in direct play, so a remembered title is the stream's own name.
+                title: track.name ?? track.title,
                 language: track.language,
                 codec: track.codec,
                 isDefault: track.isDefault,
@@ -567,7 +580,7 @@ final class PlayerViewModel {
             .track(
                 streamIndex: nil,
                 language: subtitle.language,
-                title: subtitle.title,
+                title: subtitle.name ?? subtitle.title,
                 codec: subtitle.codec ?? "",
                 isForced: subtitle.isForced,
                 isHearingImpaired: subtitle.isHearingImpaired,
@@ -581,7 +594,7 @@ final class PlayerViewModel {
         return MediaTrackPreference(
             audioStreamIndex: nil,
             audioLanguage: audio?.language,
-            audioTitle: audio?.title,
+            audioTitle: audio?.name ?? audio?.title,
             audioCodec: audio?.codec,
             audioIsHearingImpaired: audio?.isHearingImpaired,
             audioIsCommentary: nil,
