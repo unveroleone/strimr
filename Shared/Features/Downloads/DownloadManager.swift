@@ -684,7 +684,7 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
     private func hasEnoughSpace(forRemainingBytes bytes: Int64) -> Bool {
         let values = try? downloadsDirectory.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
         guard let available = values?.volumeAvailableCapacityForImportantUsage else { return true }
-        return available > bytes + Self.storageHeadroomBytes
+        return available > Self.storageHeadroomBytes && bytes < available - Self.storageHeadroomBytes
     }
 
     private func refreshStorageSummary() {
@@ -1062,7 +1062,8 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
             // Live transcodes send no length: report downloaded bytes only, without persisting every update.
             guard totalBytesExpectedToWrite > 0 else {
                 if let index = itemIndex(for: downloadTask),
-                   items[index].totalBytes != 0
+                   items[index].bytesWritten == 0
+                   || items[index].totalBytes != 0
                    || totalBytesWritten < items[index].bytesWritten
                    || totalBytesWritten - items[index].bytesWritten >= Self.unknownLengthReportStep
                 {
@@ -1074,7 +1075,8 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
                 return
             }
             let previousProgress = progressByTaskIdentifier[downloadTask.taskIdentifier] ?? -1
-            let remainingBytes = max(0, totalBytesExpectedToWrite - totalBytesWritten)
+            let receivedBytes = max(totalBytesWritten, downloadTask.countOfBytesReceived)
+            let remainingBytes = max(0, totalBytesExpectedToWrite - receivedBytes)
             if previousProgress < 0, remainingBytes > 0, !hasEnoughSpace(forRemainingBytes: remainingBytes) {
                 failDownload(task: downloadTask, error: NSError(
                     domain: "Strimr.DownloadManager",
