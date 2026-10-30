@@ -20,6 +20,7 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
     @ObservationIgnored private let monitorQueue = DispatchQueue(label: "strimr.downloads.network-monitor")
     @ObservationIgnored private var backgroundEventsCompletionHandler: (() -> Void)?
     @ObservationIgnored private var progressByTaskIdentifier: [Int: Double] = [:]
+    @ObservationIgnored private var freshTaskIdentifiers: Set<Int> = []
     @ObservationIgnored private var isLoadingPersistedState = false
     @ObservationIgnored private var ignoredCompletionIDs: Set<String> = []
     @ObservationIgnored private var servicesByServer: [ServerIdentity: MediaServices] = [:]
@@ -160,6 +161,8 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
 
         let replacementTask = backgroundSession.downloadTask(with: request)
         replacementTask.taskDescription = item.id
+        freshTaskIdentifiers.remove(currentTaskIdentifier)
+        freshTaskIdentifiers.insert(replacementTask.taskIdentifier)
         items[index].allowsCellularAccess = true
         items[index].progress = 0
         items[index].bytesWritten = 0
@@ -510,6 +513,7 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
         items.removeAll { $0.id == item.id }
         offlineStore?.deleteDownload(id: item.id)
         progressByTaskIdentifier.removeValue(forKey: item.taskIdentifier ?? -1)
+        freshTaskIdentifiers.remove(item.taskIdentifier ?? -1)
         sidecarsByItemID[item.id] = nil
         pendingRequestsByItemID[item.id] = nil
         persistState()
@@ -777,6 +781,7 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
         request.allowsExpensiveNetworkAccess = allowsCellularAccess
         let task = backgroundSession.downloadTask(with: request)
         task.taskDescription = itemID
+        freshTaskIdentifiers.insert(task.taskIdentifier)
         items[index].allowsCellularAccess = allowsCellularAccess
         items[index].status = .downloading
         items[index].progress = 0
@@ -908,6 +913,7 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
     }
 
     private func completeDownload(task: URLSessionDownloadTask, stagedLocation: URL) async {
+        freshTaskIdentifiers.remove(task.taskIdentifier)
         guard let index = itemIndex(for: task) else {
             try? FileManager.default.removeItem(at: stagedLocation)
             return
@@ -1030,6 +1036,7 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
     }
 
     private func failDownload(task: URLSessionTask, error: Error) {
+        freshTaskIdentifiers.remove(task.taskIdentifier)
         guard let index = itemIndex(for: task) else { return }
         let itemID = items[index].id
         guard !ignoredCompletionIDs.contains(itemID) else {
@@ -1077,8 +1084,8 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
             let previousProgress = progressByTaskIdentifier[downloadTask.taskIdentifier] ?? -1
             let receivedBytes = max(totalBytesWritten, downloadTask.countOfBytesReceived)
             let remainingBytes = max(0, totalBytesExpectedToWrite - receivedBytes)
-            // Preflight fresh transfers only, so restoring a download never discards its saved progress.
-            if previousProgress < 0, items[index].bytesWritten == 0,
+            // Only tasks created by this manager instance receive a capacity preflight.
+            if freshTaskIdentifiers.remove(downloadTask.taskIdentifier) != nil,
                remainingBytes > 0, !hasEnoughSpace(forRemainingBytes: remainingBytes)
             {
                 failDownload(task: downloadTask, error: NSError(
