@@ -1268,8 +1268,8 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
     ) {
         Task { @MainActor in
             guard totalBytesExpectedToWrite > 0 else { return }
-            let previousProgress = progressByTaskIdentifier[downloadTask.taskIdentifier] ?? -1
             let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+            let previousProgress = progressByTaskIdentifier[downloadTask.taskIdentifier] ?? -1
             guard progress - previousProgress >= 0.01 || progress == 1 else { return }
             progressByTaskIdentifier[downloadTask.taskIdentifier] = progress
 
