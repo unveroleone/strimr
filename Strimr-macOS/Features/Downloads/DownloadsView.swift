@@ -73,7 +73,7 @@ struct DownloadsView: View {
                 if item.isPlayable {
                     Button("common.actions.play", systemImage: "play.fill") { play(item) }
                 }
-                if item.status == .failed, downloadManager.isOwnedByActiveUser(item) {
+                if downloadManager.canRetry(item) {
                     Button("common.actions.retry", systemImage: "arrow.clockwise") {
                         downloadManager.retry(item)
                     }
@@ -89,7 +89,7 @@ struct DownloadsView: View {
             item: item,
             posterURL: downloadManager.localPosterURL(for: item),
             isSpoilerProtected: isSpoilerProtected(item),
-            onRetry: downloadManager.isOwnedByActiveUser(item) ? { downloadManager.retry(item) } : nil,
+            onRetry: downloadManager.canRetry(item) ? { downloadManager.retry(item) } : nil,
         )
     }
 

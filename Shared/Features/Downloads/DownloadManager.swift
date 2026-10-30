@@ -579,38 +579,43 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
         handler()
     }
 
+    func canRetry(_ item: DownloadItem) -> Bool {
+        guard let current = items.first(where: { $0.id == item.id }),
+              current.status == .failed,
+              !deletingIDs.contains(current.id),
+              isOwnedByActiveUser(current),
+              !isEnqueueInFlight(current)
+        else { return false }
+        return !items.contains { other in
+            other.id != current.id
+                && other.identity == current.identity
+                && other.ownerID == current.ownerID
+                && other.status != .failed
+        }
+    }
+
     /// Restarts a failed download: resumes from saved partial data when iOS provided it, else starts over.
     func retry(_ item: DownloadItem) {
+        guard canRetry(item) else { return }
         retryAttempts[item.id] = nil
         restart(item)
     }
 
-    private func restart(_ item: DownloadItem) {
+    @discardableResult
+    private func restart(_ item: DownloadItem) -> Bool {
+        guard canRetry(item), let index = items.firstIndex(where: { $0.id == item.id }) else { return false }
         retryTasks.removeValue(forKey: item.id)?.cancel()
-        guard let index = items.firstIndex(where: { $0.id == item.id }),
-              items[index].status == .failed,
-              !deletingIDs.contains(item.id),
-              isOwnedByActiveUser(items[index]),
-              !isEnqueueInFlight(items[index]),
-              !items.contains(where: { other in
-                  other.id != item.id
-                      && other.identity == item.identity
-                      && other.ownerID == item.ownerID
-                      && other.status != .failed
-              })
-        else { return }
 
         items[index].errorMessage = nil
         let resumeURL = resumeDataURL(for: item.id)
         if items[index].remoteReference == nil, let data = try? Data(contentsOf: resumeURL), !data.isEmpty {
-            try? FileManager.default.removeItem(at: resumeURL)
             let task = backgroundSession.downloadTask(withResumeData: data)
             task.taskDescription = item.id
             items[index].status = .downloading
             items[index].taskIdentifier = task.taskIdentifier
             persistState()
             task.resume()
-            return
+            return true
         }
 
         if let reference = items[index].remoteReference,
@@ -629,6 +634,7 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
         if let server = items[index].identity?.server {
             startNextQueuedTransfer(on: server)
         }
+        return true
     }
 
     private func resumeDataURL(for itemID: String) -> URL {
@@ -640,7 +646,12 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
     private func saveResumeData(from error: Error, itemID: String) {
         guard let data = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data,
               !data.isEmpty
-        else { return }
+        else {
+            if !Self.isTransient(error) {
+                try? FileManager.default.removeItem(at: resumeDataURL(for: itemID))
+            }
+            return
+        }
         let url = resumeDataURL(for: itemID)
         do {
             try data.write(to: url, options: .atomic)
@@ -667,7 +678,6 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
         guard Self.isTransient(error) else { return }
         let attempt = retryAttempts[itemID, default: 0]
         guard attempt < Self.retryDelays.count else { return }
-        retryAttempts[itemID] = attempt + 1
         let delay = Self.retryDelays[attempt]
         retryTasks[itemID]?.cancel()
         retryTasks[itemID] = Task { [weak self] in
@@ -675,7 +685,9 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
             guard !Task.isCancelled, let self else { return }
             retryTasks[itemID] = nil
             guard let item = items.first(where: { $0.id == itemID }), item.status == .failed else { return }
-            restart(item)
+            if restart(item) {
+                retryAttempts[itemID] = attempt + 1
+            }
         }
     }
 
@@ -989,6 +1001,7 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
         // A Jellyfin request waiting in the queue may carry a stale token or server address: prepare it again.
         if let cachedRequest, !isJellyfinReference(item.remoteReference) {
             startTransfer(itemID: item.id, request: cachedRequest)
+            startNextQueuedTransfer(on: server)
             return
         }
         if case .plex? = item.remoteReference {
@@ -1028,6 +1041,7 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
                 persistState()
                 if let request = preparation.request {
                     startTransfer(itemID: item.id, request: request)
+                    startNextQueuedTransfer(on: server)
                 } else {
                     items[index].status = .preparing
                     persistState()
@@ -1098,9 +1112,12 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
         }
 
         activeFinalizations += 1
+        var finalizationPending = true
         defer {
-            activeFinalizations -= 1
-            finishBackgroundEventsIfIdle()
+            if finalizationPending {
+                activeFinalizations -= 1
+                finishBackgroundEventsIfIdle()
+            }
         }
 
         let destination = resolveDownloadDestination(for: items[index], response: task.response)
@@ -1133,6 +1150,9 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
             persistState()
             try? FileManager.default.removeItem(at: resumeDataURL(for: itemID))
             retryAttempts[itemID] = nil
+            finalizationPending = false
+            activeFinalizations -= 1
+            finishBackgroundEventsIfIdle()
 
             await persistSidecars(forItemID: itemID, folderURL: destination.deletingLastPathComponent())
 

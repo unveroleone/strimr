@@ -162,11 +162,14 @@ struct DownloadRow: View {
                     Button(action: onRetry) {
                         Label("common.actions.retry", systemImage: "arrow.clockwise")
                             .font(.cardMetadata.weight(.semibold))
+                        #if os(iOS)
                             .frame(minHeight: 44)
+                        #endif
                     }
                     .buttonStyle(.bordered)
                     .buttonBorderShape(.capsule)
                     .tint(.textPrimary)
+                    .accessibilityHint(Text(verbatim: item.metadata.title))
                 }
             }
         }
