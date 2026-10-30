@@ -7,6 +7,9 @@ import Observation
 @Observable
 final class DownloadManager: NSObject, URLSessionDownloadDelegate {
     static let backgroundSessionIdentifier = "strimr.downloads.background"
+    private static let insufficientStorageCode = 1001
+    private static let storageHeadroomBytes: Int64 = 256 * 1024 * 1024
+    private static let unknownLengthReportStep: Int64 = 1024 * 1024
     weak static var shared: DownloadManager?
 
     private(set) var items: [DownloadItem] = []
@@ -535,6 +538,13 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
         backgroundEventsCompletionHandler = handler
     }
 
+    /// Only checkable once the server reports a length; a transcode of unknown size relies on the OS write error.
+    private func hasEnoughSpace(forRemainingBytes bytes: Int64) -> Bool {
+        let values = try? downloadsDirectory.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+        guard let available = values?.volumeAvailableCapacityForImportantUsage else { return true }
+        return available > bytes + Self.storageHeadroomBytes
+    }
+
     private func startNetworkMonitoring() {
         monitor.pathUpdateHandler = { [weak self] path in
             guard let self else { return }
@@ -1048,9 +1058,32 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
         totalBytesExpectedToWrite: Int64,
     ) {
         Task { @MainActor in
-            guard totalBytesExpectedToWrite > 0 else { return }
-            let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+            // Live transcodes send no length: report downloaded bytes only, without persisting every update.
+            guard totalBytesExpectedToWrite > 0 else {
+                if let index = itemIndex(for: downloadTask),
+                   items[index].totalBytes != 0
+                   || totalBytesWritten < items[index].bytesWritten
+                   || totalBytesWritten - items[index].bytesWritten >= Self.unknownLengthReportStep
+                {
+                    items[index].status = .downloading
+                    items[index].progress = 0
+                    items[index].totalBytes = 0
+                    items[index].bytesWritten = totalBytesWritten
+                }
+                return
+            }
             let previousProgress = progressByTaskIdentifier[downloadTask.taskIdentifier] ?? -1
+            let remainingBytes = max(0, totalBytesExpectedToWrite - totalBytesWritten)
+            if previousProgress < 0, remainingBytes > 0, !hasEnoughSpace(forRemainingBytes: remainingBytes) {
+                failDownload(task: downloadTask, error: NSError(
+                    domain: "Strimr.DownloadManager",
+                    code: Self.insufficientStorageCode,
+                    userInfo: [NSLocalizedDescriptionKey: String(localized: "downloads.status.insufficientStorage")],
+                ))
+                downloadTask.cancel()
+                return
+            }
+            let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
             guard progress - previousProgress >= 0.01 || progress == 1 else { return }
             progressByTaskIdentifier[downloadTask.taskIdentifier] = progress
 
