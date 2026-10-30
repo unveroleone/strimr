@@ -7,9 +7,6 @@ import Observation
 @Observable
 final class DownloadManager: NSObject, URLSessionDownloadDelegate {
     static let backgroundSessionIdentifier = "strimr.downloads.background"
-    private static let insufficientStorageCode = 1001
-    private static let storageHeadroomBytes: Int64 = 256 * 1024 * 1024
-    private static let unknownLengthReportStep: Int64 = 1024 * 1024
     weak static var shared: DownloadManager?
 
     private(set) var items: [DownloadItem] = []
@@ -538,13 +535,6 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
         backgroundEventsCompletionHandler = handler
     }
 
-    /// Only checkable once the server reports a length; a transcode of unknown size relies on the OS write error.
-    private func hasEnoughSpace(forRemainingBytes bytes: Int64) -> Bool {
-        let values = try? downloadsDirectory.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
-        guard let available = values?.volumeAvailableCapacityForImportantUsage else { return true }
-        return available > bytes + Self.storageHeadroomBytes
-    }
-
     private func startNetworkMonitoring() {
         monitor.pathUpdateHandler = { [weak self] path in
             guard let self else { return }
@@ -684,6 +674,17 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
         } catch {
             ErrorReporter.capture(error)
         }
+    }
+
+    private static let insufficientStorageCode = 1001
+    private static let storageHeadroomBytes: Int64 = 256 * 1024 * 1024
+    private static let unknownLengthReportStep: Int64 = 1024 * 1024
+
+    /// Only checkable once the server reports a length; a transcode of unknown size relies on the OS write error.
+    private func hasEnoughSpace(forRemainingBytes bytes: Int64) -> Bool {
+        let values = try? downloadsDirectory.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+        guard let available = values?.volumeAvailableCapacityForImportantUsage else { return true }
+        return available > bytes + Self.storageHeadroomBytes
     }
 
     private func refreshStorageSummary() {
