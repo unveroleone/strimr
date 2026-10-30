@@ -1059,13 +1059,13 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
         totalBytesExpectedToWrite: Int64,
     ) {
         Task { @MainActor in
+            guard let index = itemIndex(for: downloadTask) else { return }
             // Live transcodes send no length: report downloaded bytes only, without persisting every update.
             guard totalBytesExpectedToWrite > 0 else {
-                if let index = itemIndex(for: downloadTask),
-                   items[index].bytesWritten == 0
-                   || items[index].totalBytes != 0
-                   || totalBytesWritten < items[index].bytesWritten
-                   || totalBytesWritten - items[index].bytesWritten >= Self.unknownLengthReportStep
+                if items[index].bytesWritten == 0
+                    || items[index].totalBytes != 0
+                    || totalBytesWritten < items[index].bytesWritten
+                    || totalBytesWritten - items[index].bytesWritten >= Self.unknownLengthReportStep
                 {
                     items[index].status = .downloading
                     items[index].progress = 0
@@ -1077,7 +1077,10 @@ final class DownloadManager: NSObject, URLSessionDownloadDelegate {
             let previousProgress = progressByTaskIdentifier[downloadTask.taskIdentifier] ?? -1
             let receivedBytes = max(totalBytesWritten, downloadTask.countOfBytesReceived)
             let remainingBytes = max(0, totalBytesExpectedToWrite - receivedBytes)
-            if previousProgress < 0, remainingBytes > 0, !hasEnoughSpace(forRemainingBytes: remainingBytes) {
+            // Preflight fresh transfers only, so restoring a download never discards its saved progress.
+            if previousProgress < 0, items[index].bytesWritten == 0,
+               remainingBytes > 0, !hasEnoughSpace(forRemainingBytes: remainingBytes)
+            {
                 failDownload(task: downloadTask, error: NSError(
                     domain: "Strimr.DownloadManager",
                     code: Self.insufficientStorageCode,
